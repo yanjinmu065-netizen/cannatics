@@ -182,6 +182,7 @@ if check_password():
                     st.success(f"🎉 {selected_liq} を記録しました！")
 
     elif page == "🧪 リキッドマスター登録":
+        if "m_g1" not in st.session_state: st.session_state.m_g1 = 1
         new_liq_name = st.text_input("📦 新しいリキッド名")
         st.markdown('<div class="group-container"><b>配合を入力</b>', unsafe_allow_html=True)
         c1, c2 = st.columns([2, 1])
