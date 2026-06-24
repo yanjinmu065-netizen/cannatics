@@ -179,20 +179,31 @@ if check_password():
 
     st.markdown(css_code, unsafe_allow_html=True)
 
-    # 🚬 元のラジオボタンメニュー
+    # 🚬 送っていただいた画像の通りの絵文字・文言でラジオボタンを完全復元
     page = st.sidebar.radio(
         "メニュー項目", 
-        ["📝 ワンタップ吸引記録", "🧪 リキッドマスター登録", "🌐 新成分マスター登録", "📅 履歴カレンダー", "📸 リキッド紹介", "📋 成分ギャラリー"]
+        [
+            "📝 ワンタップ吸引記録", 
+            "🧪 リキッドマスター登録", 
+            "🌐 新成分マスター登録", 
+            "📅 履歴カレンダー", 
+            "📊 成分紹介", 
+            "📖 成分ギャラリー",
+            "📸 リキッド紹介",
+            "✍️ 体感レビュー入力"
+        ]
     )
 
-    # 💡 リンク文字をメニュー名と100%一致させてエラーを防止
+    # 💡 バナー上のサブタイトル表示設定
     banner_titles = {
         "📝 ワンタップ吸引記録": "ワンタップ吸引記録",
         "🧪 リキッドマスター登録": "リキッドマスター設定",
         "🌐 新成分マスター登録": "新成分の追加登録",
         "📅 履歴カレンダー": "使用履歴カレンダー",
+        "📊 成分紹介": "リキッド紹介 & レビュー",
+        "📖 成分ギャラリー": "成分一覧",
         "📸 リキッド紹介": "各リキッドのフォト＆レビュー",
-        "📋 成分ギャラリー": "成分マスター一覧表"
+        "✍️ 体感レビュー入力": "体感レビュー入力フォーム"
     }
     current_title = banner_titles.get(page, "Cannatics")
     st.markdown(f"""<div class="custom-title-banner"><h1>🌿 Cannatics</h1><p>{current_title}</p></div>""", unsafe_allow_html=True)
@@ -200,7 +211,7 @@ if check_password():
     LIQUID_MASTER_COLS = ["リキッド名", "配合詳細"]
     LOG_COLS = ["日付", "リキッド名", "パフ数", "配合詳細", "体感した効果", "体感メモ"]
 
-    # --- 各ページの条件分岐 ---
+    # --- 各ページの条件分岐（インデントエラーを徹底修正） ---
     if page == "📝 ワンタップ吸引記録":
         df_master = load_data_from_db("Liquid_Master", LIQUID_MASTER_COLS)
         if df_master.empty:
@@ -342,12 +353,22 @@ if check_password():
             with open("calendar.py", encoding="utf-8") as f: exec(f.read(), globals())
         except Exception as e: st.error(f"⚠️ 履歴カレンダーの読み込みに失敗しました: {e}")
 
-    elif page == "📸 リキッド紹介":
+    elif page == "📊 成分紹介":
         try:
-            with open("liquid.py", encoding="utf-8") as f: exec(f.read(), globals())
+            with open("review.py", encoding="utf-8") as f: exec(f.read(), globals())
         except Exception as e: st.error(f"読み込みエラー: {e}")
 
-    elif page == "📋 成分ギャラリー":
+    elif page == "📖 成分ギャラリー":
         try:
             with open("gallery.py", encoding="utf-8") as f: exec(f.read(), globals())
+        except Exception as e: st.error(f"読み込みエラー: {e}")
+
+    elif page == "📸 リキッド紹介":
+        try:
+            with open("liquid_intro.py", encoding="utf-8") as f: exec(f.read(), globals())
+        except Exception as e: st.error(f"読み込みエラー: {e}")
+
+    elif page == "✍️ 体感レビュー入力":
+        try:
+            with open("review.py", encoding="utf-8") as f: exec(f.read(), globals())
         except Exception as e: st.error(f"読み込みエラー: {e}")
