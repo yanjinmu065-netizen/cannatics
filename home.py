@@ -186,12 +186,11 @@ if check_password():
     elif page == "🧪 リキッドマスター登録":
         if "m_g1" not in st.session_state: st.session_state.m_g1 = 1
         if "m_g2" not in st.session_state: st.session_state.m_g2 = 1
-        if "m_g3" not in st.session_state: st.session_state.m_g3 = 1  # 💡 テルペンを最初から1つ表示に設定
+        if "m_g3" not in st.session_state: st.session_state.m_g3 = 1
         
         new_liq_name = st.text_input("📦 新しいリキッド名")
         st.subheader("🧪 配合割合の入力")
         
-        # 各グループの合計を保持する変数
         g1_total = 0.0
         g2_total = 0.0
         g3_total = 0.0
@@ -201,7 +200,7 @@ if check_password():
         for i in range(st.session_state.m_g1):
             c1, c2 = st.columns([2, 1])
             with c1: name = st.selectbox(f"半合成 {i+1}", g1_presets, key=f"g1_n_{i}")
-            with c2: pct = st.number_input(f"比率%##{i}", min_value=0.0, max_value=100.0, value=0.0, step=0.1, format="%.1f", key=f"g1_p_{i}") # 💡 小数点対応
+            with c2: pct = st.number_input(f"比率%##{i}", min_value=0.0, max_value=100.0, value=0.0, step=0.1, format="%.1f", key=f"g1_p_{i}")
             g1_data.append((name, pct))
             g1_total += pct
         if st.button("➕ 半合成成分を追加"):
@@ -213,7 +212,7 @@ if check_password():
         for i in range(st.session_state.m_g2):
             c1, c2 = st.columns([2, 1])
             with c1: name = st.selectbox(f"天然成分 {i+1}", g2_presets, key=f"g2_n_{i}")
-            with c2: pct = st.number_input(f"比率% (天然)##{i}", min_value=0.0, max_value=100.0, value=0.0, step=0.1, format="%.1f", key=f"g2_p_{i}") # 💡 小数点対応
+            with c2: pct = st.number_input(f"比率% (天然)##{i}", min_value=0.0, max_value=100.0, value=0.0, step=0.1, format="%.1f", key=f"g2_p_{i}")
             g2_data.append((name, pct))
             g2_total += pct
         if st.button("➕ カンナビノイド成分を追加"):
@@ -225,7 +224,7 @@ if check_password():
         for i in range(st.session_state.m_g3):
             c1, c2 = st.columns([2, 1])
             with c1: name = st.selectbox(f"テルペン {i+1}", g3_presets, key=f"g3_n_{i}")
-            with c2: pct = st.number_input(f"比率% (テルペン)##{i}", min_value=0.0, max_value=100.0, value=0.0, step=0.1, format="%.1f", key=f"g3_p_{i}") # 💡 小数点対応
+            with c2: pct = st.number_input(f"比率% (テルペン)##{i}", min_value=0.0, max_value=100.0, value=0.0, step=0.1, format="%.1f", key=f"g3_p_{i}")
             g3_data.append((name, pct))
             g3_total += pct
         if st.button("➕ テルペン成分を追加"):
@@ -237,4 +236,46 @@ if check_password():
         
         st.markdown("---")
         st.markdown("### 📊 現在の配合比率（リアルタイム計算）")
-        col_m1, col_m2, col_m3, col_m4 = st.columns(4
+        col_m1, col_m2, col_m3, col_m4 = st.columns(4) # 💡 カッコをしっかり閉じました！
+        col_m1.metric("🧬 半合成 合計", f"{g1_total:.1f} %")
+        col_m2.metric("🌿 天然成分 合計", f"{g2_total:.1f} %")
+        col_m3.metric("🍋 テルペン 合計", f"{g3_total:.1f} %")
+        
+        if total_all > 100.0:
+            st.error(f"🚨 **総合合計が100%を超えています！ ({total_all:.1f} %)**")
+        else:
+            col_m4.metric("🏆 総合合計", f"{total_all:.1f} %")
+        st.markdown("---")
+
+        if st.button("💾 マスターに登録"):
+            if not new_liq_name:
+                st.error("リキッド名を入力してください")
+            else:
+                parts = []
+                for n, p in g1_data + g2_data + g3_data:
+                    if p > 0: 
+                        p_str = f"{int(p)}" if p.is_integer() else f"{p:.1f}"
+                        parts.append(f"{n}:{p_str}%")
+                
+                if not parts:
+                    st.error("比率が0.1%以上の成分を1つ以上入力してください")
+                else:
+                    detail_str = ", ".join(parts)
+                    save_data_to_db("Liquid_Master", {"リキッド名": new_liq_name, "配合詳細": detail_str}, LIQUID_MASTER_COLS)
+                    st.success(f"🎉 「{new_liq_name}」を登録しました！")
+
+    elif page == "📊 成分紹介":
+        try:
+            with open("review.py", encoding="utf-8") as f:
+                exec(f.read(), globals())
+        except Exception as e: st.error(f"読み込みエラー: {e}")
+
+    elif page == "🌐 新成分マスター登録":
+        try:
+            with open("seibunn.py", encoding="utf-8") as f: exec(f.read(), globals())
+        except Exception: st.warning("⚠️ 新成分マスターの連携ファイルを確認してください。")
+        
+    elif page == "📅 履歴カレンダー":
+        try:
+            with open("calendar.py", encoding="utf-8") as f: exec(f.read(), globals())
+        except Exception: st.warning("⚠️ 履歴カレンダーの連携ファイルを確認してください。")
