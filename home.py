@@ -236,7 +236,7 @@ if check_password():
         
         st.markdown("---")
         st.markdown("### 📊 現在の配合比率（リアルタイム計算）")
-        col_m1, col_m2, col_m3, col_m4 = st.columns(4) # 💡 カッコをしっかり閉じました！
+        col_m1, col_m2, col_m3, col_m4 = st.columns(4)
         col_m1.metric("🧬 半合成 合計", f"{g1_total:.1f} %")
         col_m2.metric("🌿 天然成分 合計", f"{g2_total:.1f} %")
         col_m3.metric("🍋 テルペン 合計", f"{g3_total:.1f} %")
@@ -267,15 +267,19 @@ if check_password():
     elif page == "📊 成分紹介":
         try:
             with open("review.py", encoding="utf-8") as f:
-                exec(f.read(), globals())
+                # 💡 スコープを安全にしてエラーを回避
+                exec(f.read(), {'st': st, 'pd': pd, 'datetime': datetime, 'os': os, 'base64': base64})
         except Exception as e: st.error(f"読み込みエラー: {e}")
 
     elif page == "🌐 新成分マスター登録":
         try:
-            with open("seibunn.py", encoding="utf-8") as f: exec(f.read(), globals())
-        except Exception: st.warning("⚠️ 新成分マスターの連携ファイルを確認してください。")
+            with open("seibunn.py", encoding="utf-8") as f: 
+                # 💡 グローバル空間ではなく専用空間で動かすことで不整合を完全解消
+                exec(f.read(), {'st': st, 'pd': pd, 'datetime': datetime, 'os': os, 'base64': base64})
+        except Exception as e: st.error(f"⚠️ 新成分マスターの読み込みに失敗しました: {e}")
         
     elif page == "📅 履歴カレンダー":
         try:
-            with open("calendar.py", encoding="utf-8") as f: exec(f.read(), globals())
-        except Exception: st.warning("⚠️ 履歴カレンダーの連携ファイルを確認してください。")
+            with open("calendar.py", encoding="utf-8") as f: 
+                exec(f.read(), {'st': st, 'pd': pd, 'datetime': datetime, 'os': os, 'base64': base64})
+        except Exception as e: st.error(f"⚠️ 履歴カレンダーの読み込みに失敗しました: {e}")
