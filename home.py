@@ -35,6 +35,13 @@ def check_password():
 
 if check_password():
 
+    # 💡 エラーの原因だった「外部ファイルが欲しがるセッション変数」をここで自動初期化します
+    if "custom_components" not in st.session_state:
+        st.session_state["custom_components"] = []
+    if "m_g1" not in st.session_state: st.session_state.m_g1 = 1
+    if "m_g2" not in st.session_state: st.session_state.m_g2 = 1
+    if "m_g3" not in st.session_state: st.session_state.m_g3 = 1
+
     # --- 🔗 データベース接続・読み書き関数 ---
     def get_spreadsheet_client():
         if not HAS_GSPREAD: return None
@@ -184,10 +191,6 @@ if check_password():
                     st.success(f"🎉 {selected_liq} を記録しました！")
 
     elif page == "🧪 リキッドマスター登録":
-        if "m_g1" not in st.session_state: st.session_state.m_g1 = 1
-        if "m_g2" not in st.session_state: st.session_state.m_g2 = 1
-        if "m_g3" not in st.session_state: st.session_state.m_g3 = 1
-        
         new_liq_name = st.text_input("📦 新しいリキッド名")
         st.subheader("🧪 配合割合の入力")
         
@@ -267,19 +270,17 @@ if check_password():
     elif page == "📊 成分紹介":
         try:
             with open("review.py", encoding="utf-8") as f:
-                # 💡 スコープを安全にしてエラーを回避
-                exec(f.read(), {'st': st, 'pd': pd, 'datetime': datetime, 'os': os, 'base64': base64})
+                exec(f.read(), globals())
         except Exception as e: st.error(f"読み込みエラー: {e}")
 
     elif page == "🌐 新成分マスター登録":
         try:
             with open("seibunn.py", encoding="utf-8") as f: 
-                # 💡 グローバル空間ではなく専用空間で動かすことで不整合を完全解消
-                exec(f.read(), {'st': st, 'pd': pd, 'datetime': datetime, 'os': os, 'base64': base64})
+                exec(f.read(), globals())
         except Exception as e: st.error(f"⚠️ 新成分マスターの読み込みに失敗しました: {e}")
         
     elif page == "📅 履歴カレンダー":
         try:
             with open("calendar.py", encoding="utf-8") as f: 
-                exec(f.read(), {'st': st, 'pd': pd, 'datetime': datetime, 'os': os, 'base64': base64})
+                exec(f.read(), globals())
         except Exception as e: st.error(f"⚠️ 履歴カレンダーの読み込みに失敗しました: {e}")
