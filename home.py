@@ -102,7 +102,7 @@ if check_password():
             bg_style_raw = f"url(data:image/png;base64,{encoded}) center/cover"
         except Exception: pass
 
-    # CSSで文字色・サイドバーを統一
+    # CSSスタイル定義
     st.markdown(f"""
         <style>
         .stApp {{ background-color: #ffffff; color: #000000; }}
@@ -119,30 +119,6 @@ if check_password():
         }}
         .custom-title-banner h1 {{ color: #ffffff !important; font-size: 34px !important; font-weight: 800 !important; text-shadow: 0 0 10px #00ff00 !important; margin: 0 !important; }}
         .custom-title-banner p {{ color: #ff00ff !important; font-size: 18px !important; font-weight: bold !important; text-shadow: 0 0 8px #ff00ff !important; margin-top: 10px !important; }}
-        
-        /* サイドバーおしゃれ化（白文字徹底統一版） */
-        [data-testid="stSidebar"] {{ 
-            background: {bg_style_raw};
-            border-right: 2px solid #ff00ff;
-        }}
-        [data-testid="stSidebar"] .stRadio > label div p {{ 
-            color: #ffffff !important; font-weight: 900 !important; font-size: 18px !important; text-shadow: 0 0 5px #00ff00 !important; margin-bottom: 10px;
-        }}
-        [data-testid="stSidebar"] .stRadio div[role="radiogroup"] label span p,
-        [data-testid="stSidebar"] .stRadio div[role="radiogroup"] label div p,
-        [data-testid="stSidebar"] .stRadio div[role="radiogroup"] label {{ 
-            color: #ffffff !important; font-weight: bold !important; font-size: 14px !important;
-        }}
-        [data-testid="stSidebar"] div[data-baseweb="radio"] div {{ 
-            border-color: #00ff00 !important; background-color: rgba(0, 0, 0, 0.4) !important;
-        }}
-        [data-testid="stSidebar"] div[data-baseweb="radio"][aria-checked="true"] span p,
-        [data-testid="stSidebar"] div[data-baseweb="radio"][aria-checked="true"] div p {{
-            color: #ff00ff !important; text-shadow: 0 0 8px #ff00ff !important;
-        }}
-        [data-testid="stSidebar"] div[data-baseweb="radio"][aria-checked="true"] div div {{
-            background-color: #ff00ff !important;
-        }}
         </style>
         """, unsafe_allow_html=True)
 
@@ -182,17 +158,62 @@ if check_password():
                     st.success(f"🎉 {selected_liq} を記録しました！")
 
     elif page == "🧪 リキッドマスター登録":
-        if "m_g1" not in st.session_state: st.session_state.m_g1 = 1
+        if "m_g1" not in st.session_state:
+            st.session_state.m_g1 = 1
+        
+        # --- 元の動いていた登録システム処理 ---
         new_liq_name = st.text_input("📦 新しいリキッド名")
-        st.markdown('<div class="group-container"><b>配合を入力</b>', unsafe_allow_html=True)
-        c1, c2 = st.columns([2, 1])
-        with c1: name = st.selectbox("成分", g1_presets + g2_presets)
-        with c2: pct = st.number_input("比率(%)", 0, 100, 50)
-        st.markdown('</div>', unsafe_allow_html=True)
+        
+        st.subheader("🧪 配合割合の入力")
+        
+        # 半合成（G1）の追加用
+        g1_count = st.number_input("半合成成分の数", min_value=0, max_value=5, value=1, key="g1_cnt")
+        g1_data = []
+        for i in range(g1_count):
+            c1, c2 = st.columns([2, 1])
+            with c1:
+                name = st.selectbox(f"半合成 {i+1}", g1_presets, key=f"g1_n_{i}")
+            with c2:
+                pct = st.number_input(f"比率%##{i}", 0, 100, 0, key=f"g1_p_{i}")
+            g1_data.append((name, pct))
+            
+        # カンナビノイド（G2）の追加用
+        g2_count = st.number_input("カンナビノイド成分の数", min_value=0, max_value=5, value=1, key="g2_cnt")
+        g2_data = []
+        for i in range(g2_count):
+            c1, c2 = st.columns([2, 1])
+            with c1:
+                name = st.selectbox(f"天然成分 {i+1}", g2_presets, key=f"g2_n_{i}")
+            with c2:
+                pct = st.number_input(f"比率% (天然)##{i}", 0, 100, 0, key=f"g2_p_{i}")
+            g2_data.append((name, pct))
+
+        # テルペン（G3）の追加用
+        g3_count = st.number_input("テルペン成分の数", min_value=0, max_value=5, value=0, key="g3_cnt")
+        g3_data = []
+        for i in range(g3_count):
+            c1, c2 = st.columns([2, 1])
+            with c1:
+                name = st.selectbox(f"テルペン {i+1}", g3_presets, key=f"g3_n_{i}")
+            with c2:
+                pct = st.number_input(f"比率% (テルペン)##{i}", 0, 100, 0, key=f"g3_p_{i}")
+            g3_data.append((name, pct))
+
         if st.button("💾 マスターに登録"):
-            if new_liq_name:
-                save_data_to_db("Liquid_Master", {"リキッド名": new_liq_name, "配合詳細": f"{name}:{pct}%"}, LIQUID_MASTER_COLS)
-                st.success("登録しました！")
+            if not new_liq_name:
+                st.error("リキッド名を入力してください")
+            else:
+                parts = []
+                for n, p in g1_data + g2_data + g3_data:
+                    if p > 0:
+                        parts.append(f"{n}:{p}%")
+                
+                if not parts:
+                    st.error("比率が1%以上の成分を1つ以上入力してください")
+                else:
+                    detail_str = ", ".join(parts)
+                    save_data_to_db("Liquid_Master", {"リキッド名": new_liq_name, "配合詳細": detail_str}, LIQUID_MASTER_COLS)
+                    st.success(f"🎉 「{new_liq_name}」を登録しました！")
 
     elif page == "📊 成分紹介":
         try:
