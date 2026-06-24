@@ -102,7 +102,7 @@ if check_password():
             bg_style_raw = f"url(data:image/png;base64,{encoded}) center/cover"
         except Exception: pass
 
-    # CSSスタイル定義
+    # CSSでおしゃれなデザイン（白文字＆サイドバー装飾）を復活
     st.markdown(f"""
         <style>
         .stApp {{ background-color: #ffffff; color: #000000; }}
@@ -119,114 +119,15 @@ if check_password():
         }}
         .custom-title-banner h1 {{ color: #ffffff !important; font-size: 34px !important; font-weight: 800 !important; text-shadow: 0 0 10px #00ff00 !important; margin: 0 !important; }}
         .custom-title-banner p {{ color: #ff00ff !important; font-size: 18px !important; font-weight: bold !important; text-shadow: 0 0 8px #ff00ff !important; margin-top: 10px !important; }}
-        </style>
-        """, unsafe_allow_html=True)
-
-    # 📌 サイドバーメニュー
-    page = st.sidebar.radio("メニューを選択", ["📝 ワンタップ吸引記録", "🧪 リキッドマスター登録", "🌐 新成分マスター登録", "📅 履歴カレンダー", "📊 成分紹介"])
-
-    # --- ✨ 共通おしゃれバナー表示 ---
-    banner_titles = {
-        "📝 ワンタップ吸引記録": "ワンタップ吸引記録",
-        "🧪 リキッドマスター登録": "リキッドマスター設定",
-        "🌐 新成分マスター登録": "新成分の追加登録",
-        "📅 履歴カレンダー": "使用履歴カレンダー",
-        "📊 成分紹介": "リキッド紹介 & レビュー"
-    }
-    current_title = banner_titles.get(page, "Cannatics")
-    st.markdown(f"""<div class="custom-title-banner"><h1>🌿 Cannatics</h1><p>{current_title}</p></div>""", unsafe_allow_html=True)
-
-    # -------------------------------------------------------------------------
-    # 各ページの内容
-    # -------------------------------------------------------------------------
-    LIQUID_MASTER_COLS = ["リキッド名", "配合詳細"]
-    LOG_COLS = ["日付", "リキッド名", "パフ数", "配合詳細", "体感した効果", "体感メモ"]
-
-    if page == "📝 ワンタップ吸引記録":
-        df_master = load_data_from_db("Liquid_Master", LIQUID_MASTER_COLS)
-        if df_master.empty:
-            st.warning("⚠️ まだリキッドが登録されていません。")
-        else:
-            selected_liq = st.selectbox("🚬 リキッドを選択", df_master["リキッド名"].tolist())
-            liq_detail = df_master[df_master["リキッド名"] == selected_liq]["配合詳細"].values[0]
-            st.caption(f"配合: {liq_detail}")
-            puffs = st.slider("パフ数", 1, 15, 3)
-            log_date = st.date_input("日付", datetime.date.today())
-            if st.button("📊 ワンタップで記録完了！"):
-                new_log_row = {"日付": log_date.strftime("%Y-%m-%d"), "リキッド名": selected_liq, "パフ数": puffs, "配合詳細": liq_detail, "体感した効果": "", "体感メモ": ""}
-                if save_data_to_db("Attraction_Logs", new_log_row, LOG_COLS):
-                    st.success(f"🎉 {selected_liq} を記録しました！")
-
-    elif page == "🧪 リキッドマスター登録":
-        if "m_g1" not in st.session_state:
-            st.session_state.m_g1 = 1
         
-        # --- 元の動いていた登録システム処理 ---
-        new_liq_name = st.text_input("📦 新しいリキッド名")
-        
-        st.subheader("🧪 配合割合の入力")
-        
-        # 半合成（G1）の追加用
-        g1_count = st.number_input("半合成成分の数", min_value=0, max_value=5, value=1, key="g1_cnt")
-        g1_data = []
-        for i in range(g1_count):
-            c1, c2 = st.columns([2, 1])
-            with c1:
-                name = st.selectbox(f"半合成 {i+1}", g1_presets, key=f"g1_n_{i}")
-            with c2:
-                pct = st.number_input(f"比率%##{i}", 0, 100, 0, key=f"g1_p_{i}")
-            g1_data.append((name, pct))
-            
-        # カンナビノイド（G2）の追加用
-        g2_count = st.number_input("カンナビノイド成分の数", min_value=0, max_value=5, value=1, key="g2_cnt")
-        g2_data = []
-        for i in range(g2_count):
-            c1, c2 = st.columns([2, 1])
-            with c1:
-                name = st.selectbox(f"天然成分 {i+1}", g2_presets, key=f"g2_n_{i}")
-            with c2:
-                pct = st.number_input(f"比率% (天然)##{i}", 0, 100, 0, key=f"g2_p_{i}")
-            g2_data.append((name, pct))
-
-        # テルペン（G3）の追加用
-        g3_count = st.number_input("テルペン成分の数", min_value=0, max_value=5, value=0, key="g3_cnt")
-        g3_data = []
-        for i in range(g3_count):
-            c1, c2 = st.columns([2, 1])
-            with c1:
-                name = st.selectbox(f"テルペン {i+1}", g3_presets, key=f"g3_n_{i}")
-            with c2:
-                pct = st.number_input(f"比率% (テルペン)##{i}", 0, 100, 0, key=f"g3_p_{i}")
-            g3_data.append((name, pct))
-
-        if st.button("💾 マスターに登録"):
-            if not new_liq_name:
-                st.error("リキッド名を入力してください")
-            else:
-                parts = []
-                for n, p in g1_data + g2_data + g3_data:
-                    if p > 0:
-                        parts.append(f"{n}:{p}%")
-                
-                if not parts:
-                    st.error("比率が1%以上の成分を1つ以上入力してください")
-                else:
-                    detail_str = ", ".join(parts)
-                    save_data_to_db("Liquid_Master", {"リキッド名": new_liq_name, "配合詳細": detail_str}, LIQUID_MASTER_COLS)
-                    st.success(f"🎉 「{new_liq_name}」を登録しました！")
-
-    elif page == "📊 成分紹介":
-        try:
-            with open("review.py", encoding="utf-8") as f:
-                exec(f.read(), globals())
-        except Exception as e: st.error(f"読み込みエラー: {e}")
-
-    elif page == "🌐 新成分マスター登録":
-        try:
-            with open("seibunn.py", encoding="utf-8") as f: exec(f.read(), globals())
-        except Exception: st.warning("⚠️ 新成分マスターの連携ファイルを確認してください。")
-        
-    elif page == "📅 履歴カレンダー":
-        try:
-            with open("calendar.py", encoding="utf-8") as f: exec(f.read(), globals())
-        except Exception: st.warning("⚠️ 履歴カレンダーの連携ファイルを確認してください。")
+        /* サイドバーおしゃれ化（白文字徹底統一デザイン） */
+        [data-testid="stSidebar"] {{ 
+            background: {bg_style_raw};
+            border-right: 2px solid #ff00ff;
+        }}
+        [data-testid="stSidebar"] .stRadio > label div p {{ 
+            color: #ffffff !important; font-weight: 900 !important; font-size: 18px !important; text-shadow: 0 0 5px #00ff00 !important; margin-bottom: 10px;
+        }}
+        [data-testid="stSidebar"] .stRadio div[role="radiogroup"] label span p,
+        [data-testid="stSidebar"] .stRadio div[role="radiogroup"] label div p,
+        [data-testid="stSidebar"]
