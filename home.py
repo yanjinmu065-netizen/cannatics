@@ -1,189 +1,84 @@
 import streamlit as st
 import pandas as pd
-import datetime
 
-# --- ページ設定とパスワード保護 ---
-st.set_page_config(page_title="Cannatics", layout="centered")
+# ページ設定とカスタムCSS（デザイン修正）
+st.set_page_config(page_title="Cannatics", layout="wide")
 
-def check_password():
-    if "authenticated" not in st.session_state:
-        st.session_state.authenticated = False
-    if st.session_state.authenticated:
-        return True
-    
+st.markdown("""
+<style>
+    /* サイドバーのリンク文字色を白にする */
+    [data-testid="stSidebarNav"] ul li a span {
+        color: white !important;
+    }
+    /* 枠を追加・枠を削除ボタンの色を #98FB98 にする */
+    div.stButton > button {
+        background-color: #98FB98 !important;
+        color: #000000 !important; /* 文字色は見やすいように黒に */
+        border: none !important;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+# 簡易的なログイン管理
+if "authenticated" not in st.session_state:
+    st.session_state["authenticated"] = False
+
+if not st.session_state["authenticated"]:
     st.title("🔒 ログイン - Cannatics")
-    password = st.text_input("パスワードを入力してください", type="password")
+    password_input = st.text_input("パスワードを入力してください", type="password")
     if st.button("ログイン"):
-        if password == "admin123": # パスワード
-            st.session_state.authenticated = True
+        # ここにご自身のパスワードを設定してください（例: "your_password"）
+        if password_input == "your_password":
+            st.session_state["authenticated"] = True
             st.rerun()
         else:
             st.error("パスワードが違います")
-    return False
+else:
+    # ログイン成功後のメインメニュー（サイドバーで切り替え）
+    page = st.sidebar.radio("メニューを選択", ["配合電卓・分析", "新成分マスター登録", "履歴カレンダー", "成分紹介"])
 
-if check_password():
-    # --- Excelデータから成分と効果を賢く自動抽出・整理 ---
-    @st.cache_data
-    def load_excel_and_extract_tags():
-        try:
-            # 【対策】header=2 を指定して、Excelの3行目をヘッダー（列名）として正しく認識させます
-            df_cannabinoid = pd.read_excel("data.xlsx", sheet_name="カンナビノイド", header=2)
-            df_synthetic = pd.read_excel("data.xlsx", sheet_name="半合成", header=2)
-            df_terpene = pd.read_excel("data.xlsx", sheet_name="テルペン", header=2)
-            
-            # --- 1. 成分リストの抽出 ---
-            g1_list = []
-            if "成分名" in df_synthetic.columns:
-                for _, row in df_synthetic.dropna(subset=["成分名"]).iterrows():
-                    loc = str(row.get("ロケーション", ""))
-                    status = " ⚠️" if "違法" in loc or "規制" in loc else ""
-                    g1_list.append(f"{row['成分名']}{status}")
-                
-            g2_list = []
-            if "成分名" in df_cannabinoid.columns:
-                for _, row in df_cannabinoid.dropna(subset=["成分名"]).iterrows():
-                    loc = str(row.get("ロケーション", ""))
-                    status = " ⚠️" if "違法" in loc or "規制" in loc else ""
-                    g2_list.append(f"{row['成分名']}{status}")
-                
-            g3_list = []
-            if "成分名" in df_terpene.columns:
-                g3_list = list(df_terpene["成分名"].dropna().unique())
-            
-            # --- 2. 効果（体感ボタン用タグ）の自動分解・抽出 ---
-            all_effects = set()
-            for df in [df_cannabinoid, df_synthetic, df_terpene]:
-                if "効果" in df.columns:
-                    for eff_str in df["効果"].dropna():
-                        # 全角・半角カンマ、読点で区切られている体感を綺麗に分解
-                        for e in str(eff_str).replace("、", ",").split(","):
-                            clean_e = e.strip()
-                            if clean_e:
-                                all_effects.add(clean_e)
-                                
-            return g1_list, g2_list, g3_list, sorted(list(all_effects))
-        except Exception as e:
-            # 最悪読み込めなかった場合のセーフティ
-            return ["CRDP", "THA"], ["CBD", "CBG"], ["ミルセン", "リモネン"], ["リラックス", "多幸感", "眠気"]
-
-    g1_presets, g2_presets, g3_presets, extracted_effects = load_excel_and_extract_tags()
-
-    st.markdown("""
-        <style>
-        .stApp { background-color: #ffffff; color: #000000; }
-        h1, h2, h3, h4, p, label, .stMarkdown { color: #000000 !important; font-family: 'Noto Sans JP', sans-serif; }
-        .stButton>button { 
-            background-color: #00ffff; color: #000000; font-weight: bold; 
-            border-radius: 8px; border: 1px solid #000000; width: 100%; height: 45px;
-        }
-        .group-container {
-            border: 1px solid #e2e8f0; border-radius: 10px; padding: 15px; margin-bottom: 20px; background-color: #fafafa;
-        }
-        .group-title {
-            font-weight: bold; font-size: 16px; border-left: 4px solid #00ffff; padding-left: 10px; margin-bottom: 15px;
-        }
-        </style>
-        """, unsafe_allow_html=True)
-
-    if "custom_components" not in st.session_state: st.session_state.custom_components = []
-    if "group1_rows" not in st.session_state: st.session_state.group1_rows = 1
-    if "group2_rows" not in st.session_state: st.session_state.group2_rows = 1
-    if "group3_rows" not in st.session_state: st.session_state.group3_rows = 1
-    if "history_logs" not in st.session_state: st.session_state.history_logs = {}
-
-    pg_home = st.Page("home.py", title="📝 配合電卓・分析", icon="📝")
-    pg_seibunn = st.Page("seibunn.py", title="🌐 新成分マスター登録", icon="🌐")
-    pg_calendar = st.Page("calendar.py", title="📅 履歴カレンダー", icon="📅")
-    pg = st.navigation([pg_home, pg_seibunn, pg_calendar], position="sidebar")
-
-    if pg == pg_home:
+    if page == "配合電卓・分析":
         st.title("🌿 Cannatics (カンナティクス)")
         st.subheader("🧪 グループ別・配合電卓")
-
-        all_g1 = g1_presets + [c["name"] for c in st.session_state.custom_components if c['group'] == '活性']
-        all_g2 = g2_presets + [c["name"] for c in st.session_state.custom_components if c['group'] == 'ベース']
-        all_g3 = g3_presets + [c["name"] for c in st.session_state.custom_components if c['group'] == 'テルペン']
-
-        liquid_data = {}
-
-        # --- 1. 主要精神活性成分 ---
-        st.markdown('<div class="group-container"><div class="group-title">🔥 1. 主要精神活性成分（半合成等）</div>', unsafe_allow_html=True)
-        c_add, c_del = st.columns(2)
-        with c_add:
-            if st.button("➕ 枠を追加", key="add_g1"): st.session_state.group1_rows += 1; st.rerun()
-        with c_del:
-            if st.button("➖ 枠を削除", key="del_g1"):
-                if st.session_state.group1_rows > 0: st.session_state.group1_rows -= 1; st.rerun()
-
-        g1_total = 0.0
-        for i in range(st.session_state.group1_rows):
-            if not all_g1: break
-            c1, c2 = st.columns([2, 1])
-            with c1: name = st.selectbox(f"活性成分 {i+1}", all_g1, key=f"g1_n_{i}")
-            with c2: pct = st.number_input(f"比率 {i+1} (%)", min_value=0.0, max_value=100.0, value=0.0, step=5.0, key=f"g1_p_{i}")
-            if pct > 0: liquid_data[name] = pct; g1_total += pct
-        st.metric("活性成分 合計値", f"{g1_total} %")
-        st.markdown('</div>', unsafe_allow_html=True)
-
-        # --- 2. ベース成分 ---
-        st.markdown('<div class="group-container"><div class="group-title">🌿 2. ベース成分（天然カンナビノイド等）</div>', unsafe_allow_html=True)
-        c_add2, c_del2 = st.columns(2)
-        with c_add2:
-            if st.button("➕ 枠を追加", key="add_g2"): st.session_state.group2_rows += 1; st.rerun()
-        with c_del2:
-            if st.button("➖ 枠を削除", key="del_g2"):
-                if st.session_state.group2_rows > 0: st.session_state.group2_rows -= 1; st.rerun()
-
-        g2_total = 0.0
-        for i in range(st.session_state.group2_rows):
-            if not all_g2: break
-            c1, c2 = st.columns([2, 1])
-            with c1: name = st.selectbox(f"ベース成分 {i+1}", all_g2, key=f"g2_n_{i}")
-            with c2: pct = st.number_input(f"比率 {i+1} (%)", min_value=0.0, max_value=100.0, value=0.0, step=5.0, key=f"g2_p_{i}")
-            if pct > 0: liquid_data[name] = pct; g2_total += pct
-        st.metric("ベース成分 合計値", f"{g2_total} %")
-        st.markdown('</div>', unsafe_allow_html=True)
-
-        # --- 3. テルペン・その他 ---
-        st.markdown('<div class="group-container"><div class="group-title">🧪 3. テルペン・その他添加剤</div>', unsafe_allow_html=True)
-        c_add3, c_del3 = st.columns(2)
-        with c_add3:
-            if st.button("➕ 枠を追加", key="add_g3"): st.session_state.group3_rows += 1; st.rerun()
-        with c_del3:
-            if st.button("➖ 枠を削除", key="del_g3"):
-                if st.session_state.group3_rows > 0: st.session_state.group3_rows -= 1; st.rerun()
-
-        g3_total = 0.0
-        for i in range(st.session_state.group3_rows):
-            if not all_g3: break
-            c1, c2 = st.columns([2, 1])
-            with c1: name = st.selectbox(f"添加成分 {i+1}", all_g3, key=f"g3_n_{i}")
-            with c2: pct = st.number_input(f"比率 {i+1} (%)", min_value=0.0, max_value=100.0, value=0.0, step=1.0, key=f"g3_p_{i}")
-            if pct > 0: liquid_data[name] = pct; g3_total += pct
-        st.metric("テルペン・その他 合計値", f"{g3_total} %")
-        st.markdown('</div>', unsafe_allow_html=True)
-
-        grand_total = g1_total + g2_total + g3_total
-        st.subheader(f"🧮 総合計配合比率: {grand_total} %")
-
-        st.markdown("---")
-        st.subheader("3. 吸引ログと体感レビューの選択")
-        puffs = st.slider("今回の摂取量 (パフ数)", 1, 10, 3)
         
-        selected_effects = st.multiselect("🟢 🔴 体感した効果・副反応を選択", extracted_effects)
+        # ボタンの配置と枠の追加/削除のモック
+        col1, col2 = st.columns(2)
+        with col1:
+            st.button("＋ 枠を追加")
+        with col2:
+            st.button("－ 枠を削除")
+            
+        st.caption("🔥 1. 主要精神活性成分（半合成等）")
         
-        user_memo = st.text_area("体感メモ（自由記述）")
-        log_date = st.date_input("記録する日付", datetime.date.today())
+        # 活性成分1
+        st.selectbox("活性成分 1", ["H4CBH ⚠️", "CRDP"])
+        st.number_input("比率 1 (%)", min_value=0.0, max_value=100.0, value=25.0, step=0.01)
+        
+        # 活性成分2
+        st.selectbox("活性成分 2", ["CRDP", "H4CBH ⚠️"], index=0)
+        st.number_input("比率 2 (%)", min_value=0.0, max_value=100.0, value=25.0, step=0.01)
+        
+        st.write("活性成分 合計値")
+        st.markdown("## 50.0 %")
 
-        if st.button("📊 チャートを生成して履歴に保存"):
-            if grand_total == 0:
-                st.error("数値を入力してください。")
-            else:
-                date_str = log_date.strftime("%Y-%m-%d")
-                st.session_state.history_logs[date_str] = {
-                    "liquid_data": liquid_data, "puffs": puffs, "memo": user_memo,
-                    "g1_total": g1_total, "g2_total": g2_total,
-                    "effects": selected_effects
+    elif page == "新成分マスター登録":
+        st.title("🌐 新成分マスター登録")
+        st.write("ここに新しい成分の登録画面を作成します。")
+
+    elif page == "履歴カレンダー":
+        st.title("📅 履歴カレンダー")
+        st.write("ここに配合履歴のカレンダーを表示します。")
+
+    elif page == "成分紹介":
+        st.title("📊 成分紹介ページ")
+        st.write("`data.xlsx` に登録されている成分の一覧表です。")
+        
+        # Excelファイルの読み込みと表示
+        try:
+            df = pd.read_excel("data.xlsx")
+            st.dataframe(df, use_container_width=True)
+        except Exception as e:
+            st.warning("data.xlsx を読み込めませんでした。ファイルがリポジトリに存在するか確認してください。")
                 }
                 st.success(f"🎉 {date_str} のログを保存しました！『📅 履歴カレンダー』を確認してください。")
     else:
