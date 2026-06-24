@@ -27,7 +27,7 @@ def check_password():
     password = st.text_input("パスワードを入力してください", type="password", key="login_password")
     
     if st.button("ログイン"):
-        if username == "0602" and password == "admin": 
+        if username == "0602" and password == "admin123": 
             st.session_state.authenticated = True
             st.rerun()
         else:
