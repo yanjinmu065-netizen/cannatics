@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import datetime
 import os
+import base64
 
 # --- ページ設定とパスワード保護 ---
 st.set_page_config(page_title="Cannatics", layout="centered")
@@ -13,13 +14,18 @@ def check_password():
         return True
     
     st.title("🔒 ログイン - Cannatics")
-    password = st.text_input("パスワードを入力してください", type="password")
+    
+    # 🌟 【修正箇所】ログインIDの入力欄を追加
+    username = st.text_input("ログインIDを入力してください", key="login_username")
+    password = st.text_input("パスワードを入力してください", type="password", key="login_password")
+    
     if st.button("ログイン"):
-        if password == "0602": # パスワード
+        # 🌟 【修正箇所】IDが「0602」かつ パスワードが「admin123」のときだけ突破
+        if username == "0602" and password == "admin123": 
             st.session_state.authenticated = True
             st.rerun()
         else:
-            st.error("パスワードが違います")
+            st.error("ログインIDまたはパスワードが違います")
     return False
 
 if check_password():
@@ -27,7 +33,6 @@ if check_password():
     @st.cache_data
     def load_excel_and_extract_tags():
         try:
-            # 【対策】header=2 を指定して、Excelの3行目をヘッダー（列名）として正しく認識させます
             df_cannabinoid = pd.read_excel("data.xlsx", sheet_name="カンナビノイド", header=2)
             df_synthetic = pd.read_excel("data.xlsx", sheet_name="半合成", header=2)
             df_terpene = pd.read_excel("data.xlsx", sheet_name="テルペン", header=2)
@@ -56,7 +61,6 @@ if check_password():
             for df in [df_cannabinoid, df_synthetic, df_terpene]:
                 if "効果" in df.columns:
                     for eff_str in df["効果"].dropna():
-                        # 全角・半角カンマ、読点で区切られている体感を綺麗に分解
                         for e in str(eff_str).replace("、", ",").split(","):
                             clean_e = e.strip()
                             if clean_e:
@@ -64,19 +68,30 @@ if check_password():
                                 
             return g1_list, g2_list, g3_list, sorted(list(all_effects))
         except Exception as e:
-            # 最悪読み込めなかった場合のセーフティ
             return ["CRDP", "THA"], ["CBD", "CBG"], ["ミルセン", "リモネン"], ["リラックス", "多幸感", "眠気"]
 
     g1_presets, g2_presets, g3_presets, extracted_effects = load_excel_and_extract_tags()
 
-    # カスタムCSS（デザイン修正を安全に適用）
-    st.markdown("""
+    # --- 📸 背景用ネオン画像の読み込み処理 ---
+    bg_image_file = "title_bg.png"  
+    bg_css_style = "background: linear-gradient(135deg, #130021 0%, #3a0066 100%);" 
+    
+    if os.path.exists(bg_image_file):
+        try:
+            with open(bg_image_file, "rb") as image_file:
+                encoded_string = base64.b64encode(image_file.read()).decode()
+            bg_css_style = f"background-image: url(data:image/png;base64,{encoded_string}); background-size: cover; background-position: center;"
+        except Exception:
+            pass
+
+    # カスタムCSS（サイドバー白文字化＆タイトル背景画像化）
+    st.markdown(f"""
         <style>
-        .stApp { background-color: #ffffff; color: #000000; }
-        h1, h2, h3, h4, p, label, .stMarkdown { color: #000000 !important; font-family: 'Noto Sans JP', sans-serif; }
+        .stApp {{ background-color: #ffffff; color: #000000; }}
+        h1, h2, h3, h4, p, label, .stMarkdown {{ color: #000000 !important; font-family: 'Noto Sans JP', sans-serif; }}
         
         /* ➕枠を追加・➖枠を削除ボタンの色を #98FB98 (淡い緑) に変更 */
-        .stButton>button { 
+        .stButton>button {{ 
             background-color: #98FB98 !important; 
             color: #000000 !important; 
             font-weight: bold; 
@@ -84,18 +99,51 @@ if check_password():
             border: 1px solid #000000; 
             width: 100%; 
             height: 45px;
-        }
-        .group-container {
+        }}
+        .group-container {{
             border: 1px solid #e2e8f0; border-radius: 10px; padding: 15px; margin-bottom: 20px; background-color: #fafafa;
-        }
-        .group-title {
+        }}
+        .group-title {{
             font-weight: bold; font-size: 16px; border-left: 4px solid #00ffff; padding-left: 10px; margin-bottom: 15px;
-        }
+        }}
         
-        /* サイドバーのリンク文字色を「白」にする */
-        [data-testid="stSidebarNav"] ul li a span {
-            color: white !important;
-        }
+        /* 🎨 サイドバーの文字色を白く固定 */
+        [data-testid="stSidebar"] .stRadio > label div p {{
+            color: #ffffff !important;
+            font-weight: bold !important;
+            font-size: 16px !important;
+        }}
+        [data-testid="stSidebar"] .stRadio div[role="radiogroup"] label span p {{
+            color: #ffffff !important;
+        }}
+        [data-testid="stSidebar"] div[data-baseweb="radio"] div {{
+            border-color: rgba(255, 255, 255, 0.6) !important;
+        }}
+        
+        /* 🖼️ タイトルヘッダーのネオン背景画像化 */
+        .custom-title-banner {{
+            {bg_css_style}
+            padding: 40px 20px;
+            border-radius: 12px;
+            text-align: center;
+            margin-bottom: 30px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+        }}
+        .custom-title-banner h1 {{
+            color: #ffffff !important;
+            font-size: 32px !important;
+            font-weight: 800 !important;
+            text-shadow: 0 0 10px #00ff00, 0 0 20px #00ff00, 0 0 30px #00ff00 !important;
+            margin: 0 !important;
+        }}
+        .custom-title-banner p {{
+            color: #ff00ff !important;
+            font-size: 18px !important;
+            font-weight: bold !important;
+            text-shadow: 0 0 8px #ff00ff !important;
+            margin-top: 10px !important;
+            margin-bottom: 0 !important;
+        }}
         </style>
         """, unsafe_allow_html=True)
 
@@ -105,11 +153,17 @@ if check_password():
     if "group3_rows" not in st.session_state: st.session_state.group3_rows = 1
     if "history_logs" not in st.session_state: st.session_state.history_logs = {}
 
-    # 🌟 エラー回避対策：安全なラジオボタン形式のメニュー（サイドバー）に変更
+    # サイドバーメニュー
     page = st.sidebar.radio("メニューを選択", ["📝 配合電卓・分析", "🌐 新成分マスター登録", "📅 履歴カレンダー", "📊 成分紹介"])
 
     if page == "📝 配合電卓・分析":
-        st.title("🌿 Cannatics (カンナティクス)")
+        st.markdown("""
+            <div class="custom-title-banner">
+                <h1>🌿 Cannatics (カンナティクス)</h1>
+                <p>Happy 420 Neon Style</p>
+            </div>
+            """, unsafe_allow_html=True)
+            
         st.subheader("🧪 グループ別・配合電卓")
 
         all_g1 = g1_presets + [c["name"] for c in st.session_state.custom_components if c['group'] == '活性']
@@ -199,26 +253,25 @@ if check_password():
                 }
                 st.success(f"🎉 {date_str} のログを保存しました！『📅 履歴カレンダー』を確認してください。")
 
-    # --- 新成分マスター登録（元々の仕様を実行） ---
+    # --- 新成分マスター登録 ---
     elif page == "🌐 新成分マスター登録":
-        # 外部ファイルとして読み込めないエラーを防ぐため、安全に分岐スクリプトを実行
         try:
             with open("seibunn.py", encoding="utf-8") as f:
                 exec(f.read(), globals())
         except Exception as e:
             st.title("🌐 新成分マスター登録")
-            st.write("`seibunn.py` を読み込めませんでした。ファイルがリポジトリに存在するか確認してください。")
+            st.write("`seibunn.py` を読み込めませんでした。")
 
-    # --- 履歴カレンダー（元々の仕様を実行） ---
+    # --- 履歴カレンダー ---
     elif page == "📅 履歴カレンダー":
         try:
             with open("calendar.py", encoding="utf-8") as f:
                 exec(f.read(), globals())
         except Exception as e:
             st.title("📅 履歴カレンダー")
-            st.write("`calendar.py` を読み込めませんでした。ファイルがリポジトリに存在するか確認してください。")
+            st.write("`calendar.py` を読み込めませんでした。")
 
-    # --- 📊 成分紹介ページ（Excelの複数シートを跨いで表示） ---
+    # --- 📊 成分紹介ページ ---
     elif page == "📊 成分紹介":
         st.title("📊 カンナティクス 成分紹介")
         st.write("`data.xlsx` に登録されている、すべてのシートの成分データを切り替えて確認できます。")
@@ -227,20 +280,13 @@ if check_password():
 
         if os.path.exists(file_path):
             try:
-                # Excelを開いてシート名を全部自動取得
                 excel_file = pd.ExcelFile(file_path)
                 sheet_names = excel_file.sheet_names
-                
-                # ユーザーがシートを切り替えられる選択ボックスを設置
                 selected_sheet = st.selectbox("確認したいシートを選択してください", sheet_names)
                 
-                # あなたのExcelに合わせて、3行目(header=2)を項目名（成分名・効果・時間など）として正確に読み込む
                 df = pd.read_excel(file_path, sheet_name=selected_sheet, header=2)
-                
-                # 完全に空白のゴミ行や列をきれいに掃除
                 df = df.dropna(how='all')
                 
-                # データが存在すれば一覧表として綺麗に表示
                 if not df.empty:
                     st.dataframe(df, use_container_width=True)
                 else:
@@ -249,4 +295,4 @@ if check_password():
             except Exception as e:
                 st.error(f"Excelシートの読み込み中に予期せぬエラーが起きました: {e}")
         else:
-            st.warning("`data.xlsx` が見つかりませんでした。GitHubにファイルがあるか確認してください。")
+            st.warning("`data.xlsx` が見つかりませんでした。")
