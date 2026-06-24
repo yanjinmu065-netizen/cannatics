@@ -179,7 +179,7 @@ if check_password():
 
     st.markdown(css_code, unsafe_allow_html=True)
 
-    # 🚬 送っていただいた画像の通りの絵文字・文言でラジオボタンを完全復元
+    # 🚬 サイドバーのメニュー構成
     page = st.sidebar.radio(
         "メニュー項目", 
         [
@@ -194,7 +194,7 @@ if check_password():
         ]
     )
 
-    # 💡 バナー上のサブタイトル表示設定
+    # 💡 タイトルバナー設定
     banner_titles = {
         "📝 ワンタップ吸引記録": "ワンタップ吸引記録",
         "🧪 リキッドマスター登録": "リキッドマスター設定",
@@ -211,7 +211,17 @@ if check_password():
     LIQUID_MASTER_COLS = ["リキッド名", "配合詳細"]
     LOG_COLS = ["日付", "リキッド名", "パフ数", "配合詳細", "体感した効果", "体感メモ"]
 
-    # --- 各ページの条件分岐（インデントエラーを徹底修正） ---
+    # 🛠️ 安全に外部ファイルを読み込む共通関数（ファイルがなくてもエラーにしない）
+    def safe_exec_file(file_name, page_label):
+        if os.path.exists(file_name):
+            try:
+                with open(file_name, encoding="utf-8") as f: exec(f.read(), globals())
+            except Exception as e:
+                st.error(f"⚠️ {page_label} の実行中にエラーが発生しました: {e}")
+        else:
+            st.info(f"📁 現在、このフォルダに `{file_name}` がありません。ファイルを追加するとここに画面が表示されます。")
+
+    # --- 各ページの条件分岐 ---
     if page == "📝 ワンタップ吸引記録":
         df_master = load_data_from_db("Liquid_Master", LIQUID_MASTER_COLS)
         if df_master.empty:
@@ -344,31 +354,19 @@ if check_password():
                     st.rerun()
 
     elif page == "🌐 新成分マスター登録":
-        try:
-            with open("seibunn.py", encoding="utf-8") as f: exec(f.read(), globals())
-        except Exception as e: st.error(f"⚠️ 新成分マスターの読み込みに失敗しました: {e}")
+        safe_exec_file("seibunn.py", "新成分マスター登録")
         
     elif page == "📅 履歴カレンダー":
-        try:
-            with open("calendar.py", encoding="utf-8") as f: exec(f.read(), globals())
-        except Exception as e: st.error(f"⚠️ 履歴カレンダーの読み込みに失敗しました: {e}")
+        safe_exec_file("calendar.py", "履歴カレンダー")
 
     elif page == "📊 成分紹介":
-        try:
-            with open("review.py", encoding="utf-8") as f: exec(f.read(), globals())
-        except Exception as e: st.error(f"読み込みエラー: {e}")
+        safe_exec_file("review.py", "成分紹介")
 
     elif page == "📖 成分ギャラリー":
-        try:
-            with open("gallery.py", encoding="utf-8") as f: exec(f.read(), globals())
-        except Exception as e: st.error(f"読み込みエラー: {e}")
+        safe_exec_file("gallery.py", "成分ギャラリー")
 
     elif page == "📸 リキッド紹介":
-        try:
-            with open("liquid_intro.py", encoding="utf-8") as f: exec(f.read(), globals())
-        except Exception as e: st.error(f"読み込みエラー: {e}")
+        safe_exec_file("liquid_intro.py", "リキッド紹介")
 
     elif page == "✍️ 体感レビュー入力":
-        try:
-            with open("review.py", encoding="utf-8") as f: exec(f.read(), globals())
-        except Exception as e: st.error(f"読み込みエラー: {e}")
+        safe_exec_file("review.py", "体感レビュー入力")
