@@ -134,10 +134,192 @@ if check_password():
             bg_css_style = f"background-image: url(data:image/png;base64,{encoded_string}); background-size: cover; background-position: center;"
         except Exception: pass
 
-    # カスタムCSS
+    # 🎨 カスタムCSS（エラーを完全に防ぐ波カッコ二重エスケープ処理済）
     st.markdown(f"""
         <style>
         .stApp {{ background-color: #ffffff; color: #000000; }}
         h1, h2, h3, h4, p, label, .stMarkdown {{ color: #000000 !important; font-family: 'Noto Sans JP', sans-serif; }}
         .stButton>button {{ 
-            background-color: #98FB98 !important; color: #000000 !important; font-weight: bold
+            background-color: #98FB98 !important; color: #000000 !important; font-weight: bold; border-radius: 8px; border: 1px solid #000000; width: 100%; height: 45px;
+        }}
+        .group-container {{ border: 1px solid #e2e8f0; border-radius: 10px; padding: 15px; margin-bottom: 20px; background-color: #fafafa; }}
+        .group-title {{ font-weight: bold; font-size: 16px; border-left: 4px solid #00ffff; padding-left: 10px; margin-bottom: 15px; }}
+        [data-testid="stSidebar"] .stRadio > label div p {{ color: #ffffff !important; font-weight: bold !important; font-size: 16px !important; }}
+        [data-testid="stSidebar"] .stRadio div[role="radiogroup"] label span p {{ color: #ffffff !important; }}
+        [data-testid="stSidebar"] div[data-baseweb="radio"] div {{ border-color: rgba(255, 255, 255, 0.6) !important; }}
+        .custom-title-banner {{ {bg_css_style} padding: 40px 20px; border-radius: 12px; text-align: center; margin-bottom: 30px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); }}
+        .custom-title-banner h1 {{ color: #ffffff !important; font-size: 32px !important; font-weight: 800 !important; text-shadow: 0 0 10px #00ff00 !important; margin: 0 !important; }}
+        .custom-title-banner p {{ color: #ff00ff !important; font-size: 18px !important; font-weight: bold !important; text-shadow: 0 0 8px #ff00ff !important; margin-top: 10px !important; }}
+        </style>
+        """, unsafe_allow_html=True)
+
+    # 画面のカウント用セッション管理
+    if "master_g1_rows" not in st.session_state: st.session_state.master_g1_rows = 1
+    if "master_g2_rows" not in st.session_state: st.session_state.master_g2_rows = 1
+    if "master_g3_rows" not in st.session_state: st.session_state.master_g3_rows = 1
+    if "log_g1_rows" not in st.session_state: st.session_state.log_g1_rows = 1
+    if "log_g2_rows" not in st.session_state: st.session_state.log_g2_rows = 1
+    if "log_g3_rows" not in st.session_state: st.session_state.log_g3_rows = 1
+
+    LIQUID_MASTER_COLS = ["リキッド名", "配合詳細"]
+    LOG_COLS = ["日付", "リキッド名", "パフ数", "配合詳細", "体感した効果", "体感メモ"]
+
+    # メニュー選択
+    page = st.sidebar.radio("メニューを選択", ["📝 ワンタップ吸引記録", "🧪 リキッドマスター登録", "🌐 新成分マスター登録", "📅 履歴カレンダー", "📊 成分紹介"])
+
+    # -------------------------------------------------------------------------
+    # 📝 ワンタップ吸引記録
+    # -------------------------------------------------------------------------
+    if page == "📝 ワンタップ吸引記録":
+        st.markdown("""<div class="custom-title-banner"><h1>🌿 Cannatics (カンナティクス)</h1><p>ワンタップ吸引記録 & ログ</p></div>""", unsafe_allow_html=True)
+        
+        df_master = load_data_from_db("Liquid_Master", LIQUID_MASTER_COLS)
+        
+        st.subheader("⚡ 吸引記録の入力")
+        
+        # 登録データがあるかないかで入力を切り替える
+        if not df_master.empty:
+            record_mode = st.radio("入力方法を選択してください", ["📦 登録済みのリキッドから選ぶ", "✍️ その場で新しく成分を入力する"])
+        else:
+            st.info("💡 まだ事前登録されたリキッドがありません。「🧪 リキッドマスター登録」からお気に入りを保存するか、以下のフォームから直接成分を入力して記録できます。")
+            record_mode = "✍️ その場で新しく成分を入力する"
+
+        selected_liq = "カスタム配合"
+        liq_detail = ""
+
+        # パターンA：登録から選ぶ
+        if record_mode == "📦 登録済みのリキッドから選ぶ":
+            selected_liq = st.selectbox("🚬 吸うリキッドを選択してください", df_master["リキッド名"].tolist())
+            liq_detail = df_master[df_master["リキッド名"] == selected_liq]["配合詳細"].values[0]
+            st.info(f"📋 選択中の配合: {liq_detail}")
+            
+        # パターンB：その場で成分を自由に入れる（➕枠を追加 ボタン付き）
+        else:
+            selected_liq = st.text_input("📦 今回吸うリキッドの名前・メモ", value="カスタムリキッド")
+            local_components = {}
+            
+            st.markdown('<div class="group-container"><div class="group-title">🔥 1. 主要精神活性成分</div>', unsafe_allow_html=True)
+            if st.button("➕ 主要成分の枠を追加", key="log_add_g1"): st.session_state.log_g1_rows += 1; st.rerun()
+            for i in range(st.session_state.log_g1_rows):
+                c1, c2 = st.columns([2, 1])
+                with c1: name = st.selectbox(f"活性成分 {i+1}", g1_presets, key=f"log_g1_n_{i}")
+                with c2: pct = st.number_input(f"比率 {i+1} (%)", 0.0, 100.0, step=5.0, key=f"log_g1_p_{i}")
+                if pct > 0: local_components[name] = pct
+            st.markdown('</div>', unsafe_allow_html=True)
+
+            st.markdown('<div class="group-container"><div class="group-title">🌿 2. ベース成分</div>', unsafe_allow_html=True)
+            if st.button("➕ ベース成分の枠を追加", key="log_add_g2"): st.session_state.log_g2_rows += 1; st.rerun()
+            for i in range(st.session_state.log_g2_rows):
+                c1, c2 = st.columns([2, 1])
+                with c1: name = st.selectbox(f"ベース成分 {i+1}", g2_presets, key=f"log_g2_n_{i}")
+                with c2: pct = st.number_input(f"比率 {i+1} (%)", 0.0, 100.0, step=5.0, key=f"log_g2_p_{i}")
+                if pct > 0: local_components[name] = pct
+            st.markdown('</div>', unsafe_allow_html=True)
+
+            st.markdown('<div class="group-container"><div class="group-title">🧪 3. テルペン・その他</div>', unsafe_allow_html=True)
+            if st.button("➕ テルペンの枠を追加", key="log_add_g3"): st.session_state.log_g3_rows += 1; st.rerun()
+            for i in range(st.session_state.log_g3_rows):
+                c1, c2 = st.columns([2, 1])
+                with c1: name = st.selectbox(f"添加成分 {i+1}", g3_presets, key=f"log_g3_n_{i}")
+                with c2: pct = st.number_input(f"比率 {i+1} (%)", 0.0, 100.0, step=1.0, key=f"log_g3_p_{i}")
+                if pct > 0: local_components[name] = pct
+            st.markdown('</div>', unsafe_allow_html=True)
+            
+            liq_detail = " / ".join([f"{k}:{v}%" for k, v in local_components.items()])
+
+        # 共通のパフ数と日付設定
+        puffs = st.slider("今回の摂取量 (パフ数)", 1, 10, 3)
+        log_date = st.date_input("記録する日付", datetime.date.today())
+        
+        st.markdown("---")
+        st.subheader("🟢 体感レビュー")
+        selected_effects = st.multiselect("体感した効果・副反応", extracted_effects)
+        user_memo = st.text_area("体感メモ（自由記述）")
+        
+        if st.button("📊 スプレッドシートへ保存"):
+            date_str = log_date.strftime("%Y-%m-%d")
+            effects_str = ", ".join(selected_effects)
+            
+            new_log_row = {
+                "日付": date_str, "リキッド名": selected_liq, "パフ数": puffs,
+                "配合詳細": liq_detail, "体感した効果": effects_str, "体感メモ": user_memo
+            }
+            
+            success = save_data_to_db("Attraction_Logs", new_log_row, LOG_COLS)
+            if success:
+                st.success(f"🎉 {date_str} のログをGoogleスプレッドシートへ完全に保存しました！")
+            else:
+                st.success(f"🎉 ログを端末内にローカル保存しました。")
+
+    # -------------------------------------------------------------------------
+    # 🧪 リキッドマスター登録
+    # -------------------------------------------------------------------------
+    elif page == "🧪 リキッドマスター登録":
+        st.title("🧪 リキッド名と配合の事前登録")
+        st.write("ボタンを押して成分枠を増やし、お気に入りのリキッド配合を保存できます。")
+        
+        new_liquid_name = st.text_input("📦 登録するリキッド名（例: 特製ミックスA）")
+        liquid_components = {}
+
+        st.markdown('<div class="group-container"><div class="group-title">🔥 1. 主要精神活性成分（半合成等）</div>', unsafe_allow_html=True)
+        if st.button("➕ 活性成分の枠を追加", key="m_add_g1"): st.session_state.master_g1_rows += 1; st.rerun()
+        for i in range(st.session_state.master_g1_rows):
+            c1, c2 = st.columns([2, 1])
+            with c1: name = st.selectbox(f"活性成分 {i+1}", g1_presets, key=f"m_g1_n_{i}")
+            with c2: pct = st.number_input(f"比率 {i+1} (%)", min_value=0.0, max_value=100.0, value=0.0, step=5.0, key=f"m_g1_p_{i}")
+            if pct > 0: liquid_components[name] = pct
+        st.markdown('</div>', unsafe_allow_html=True)
+
+        st.markdown('<div class="group-container"><div class="group-title">🌿 2. ベース成分（天然カンナビノイド等）</div>', unsafe_allow_html=True)
+        if st.button("➕ ベース成分の枠を追加", key="m_add_g2"): st.session_state.master_g2_rows += 1; st.rerun()
+        for i in range(st.session_state.master_g2_rows):
+            c1, c2 = st.columns([2, 1])
+            with c1: name = st.selectbox(f"ベース成分 {i+1}", g2_presets, key=f"m_g2_n_{i}")
+            with c2: pct = st.number_input(f"比率 {i+1} (%)", min_value=0.0, max_value=100.0, value=0.0, step=5.0, key=f"m_g2_p_{i}")
+            if pct > 0: liquid_components[name] = pct
+        st.markdown('</div>', unsafe_allow_html=True)
+
+        st.markdown('<div class="group-container"><div class="group-title">🧪 3. テルペン・その他添加剤</div>', unsafe_allow_html=True)
+        if st.button("➕ テルペンの枠を追加", key="m_add_g3"): st.session_state.master_g3_rows += 1; st.rerun()
+        for i in range(st.session_state.master_g3_rows):
+            c1, c2 = st.columns([2, 1])
+            with c1: name = st.selectbox(f"添加成分 {i+1}", g3_presets, key=f"m_g3_n_{i}")
+            with c2: pct = st.number_input(f"比率 {i+1} (%)", min_value=0.0, max_value=100.0, value=0.0, step=1.0, key=f"m_g3_p_{i}")
+            if pct > 0: liquid_components[name] = pct
+        st.markdown('</div>', unsafe_allow_html=True)
+            
+        if st.button("💾 このリキッドをマスターに登録"):
+            if not new_liquid_name:
+                st.error("リキッド名を入力してください。")
+            elif not liquid_components:
+                st.error("比率が1%以上の成分を最低1つ入力してください。")
+            else:
+                details_str = " / ".join([f"{k}:{v}%" for k, v in liquid_components.items()])
+                new_master_row = {"リキッド名": new_liquid_name, "配合詳細": details_str}
+                success = save_data_to_db("Liquid_Master", new_master_row, LIQUID_MASTER_COLS)
+                st.success(f"🎉 「{new_liquid_name}」を登録しました！")
+
+        st.markdown("---")
+        st.subheader("📋 現在登録されているリキッド一覧")
+        df_master = load_data_from_db("Liquid_Master", LIQUID_MASTER_COLS)
+        st.dataframe(df_master, use_container_width=True)
+
+    # --- その他の既存ページ ---
+    elif page == "🌐 新成分マスター登録":
+        try:
+            with open("seibunn.py", encoding="utf-8") as f: exec(f.read(), globals())
+        except Exception: st.title("🌐 新成分マスター登録"); st.write("ファイルを確認してください。")
+    elif page == "📅 履歴カレンダー":
+        try:
+            with open("calendar.py", encoding="utf-8") as f: exec(f.read(), globals())
+        except Exception: st.title("📅 履歴カレンダー"); st.write("ファイルを確認してください。")
+    elif page == "📊 成分紹介":
+        st.title("📊 カンナティクス 成分紹介")
+        file_path = "data.xlsx"
+        if os.path.exists(file_path):
+            try:
+                excel_file = pd.ExcelFile(file_path)
+                selected_sheet = st.selectbox("シートを選択", excel_file.sheet_names)
+                df = pd.read_excel(file_path, sheet_name=selected_sheet, header=2).dropna(how='all')
+                st.dataframe(df, use_container_width=True)
+            except Exception as e: st.error(f"エラー: {e}")
