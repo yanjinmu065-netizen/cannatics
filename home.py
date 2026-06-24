@@ -35,12 +35,15 @@ def check_password():
 
 if check_password():
 
-    # 💡 セッション変数の初期化（m_g1 は主要成分の枠数になります）
+    # 💡 セッション変数の初期化
     if "custom_components" not in st.session_state:
         st.session_state["custom_components"] = []
     if "m_g1" not in st.session_state: st.session_state.m_g1 = 1
     if "m_g2" not in st.session_state: st.session_state.m_g2 = 1
     if "m_g3" not in st.session_state: st.session_state.m_g3 = 1
+    
+    # 💡 編集モード管理用のセッション変数
+    if "edit_target" not in st.session_state: st.session_state.edit_target = None
 
     # --- 🔗 データベース接続・読み書き関数 ---
     def get_spreadsheet_client():
@@ -71,6 +74,22 @@ if check_password():
         if os.path.exists(file_name): return pd.read_csv(file_name)
         return pd.DataFrame(columns=default_cols)
 
+    def save_all_data_to_db(sheet_name, df, default_cols):
+        """データをすべて上書き保存する（削除や編集で使用）"""
+        client = get_spreadsheet_client()
+        if client:
+            try:
+                sh = client.open("Cannatics_Database")
+                worksheet = sh.worksheet(sheet_name)
+                worksheet.clear()
+                worksheet.append_row(default_cols)
+                if not df.empty:
+                    worksheet.append_rows(df[default_cols].values.tolist())
+                return True
+            except Exception: pass
+        df.to_csv(f"{sheet_name}.csv", index=False)
+        return True
+
     def save_data_to_db(sheet_name, new_row_dict, default_cols):
         client = get_spreadsheet_client()
         if client:
@@ -89,7 +108,6 @@ if check_password():
     @st.cache_data
     def load_excel_presets():
         try:
-            # エクセル上の「半合成」シートから読み込んだものを、これからは「主要成分」として扱います
             df_synthetic = pd.read_excel("data.xlsx", sheet_name="半合成", header=2)
             df_cannabinoid = pd.read_excel("data.xlsx", sheet_name="カンナビノイド", header=2)
             df_terpene = pd.read_excel("data.xlsx", sheet_name="テルペン", header=2)
@@ -99,14 +117,12 @@ if check_password():
             return g1, g2, g3
         except Exception: return ["CRDP", "THA"], ["CBD", "CBG"], ["ミルセン", "リモネン"]
 
-    # 💡 選択肢リスト（プリセット）をセッション内で一元管理
     if 'g1_presets' not in st.session_state or 'g2_presets' not in st.session_state or 'g3_presets' not in st.session_state:
         g1_init, g2_init, g3_init = load_excel_presets()
         st.session_state['g1_presets'] = g1_init
         st.session_state['g2_presets'] = g2_init
         st.session_state['g3_presets'] = g3_init
 
-    # 💡 seibunn.py から「主要成分」として追加されたデータをドロップダウンに完全同期
     if "custom_components" in st.session_state:
         for comp in st.session_state.custom_components:
             if comp['group'] == '主要成分' and comp['name'] not in st.session_state['g1_presets']:
@@ -124,12 +140,10 @@ if check_password():
     bg_style_raw = "linear-gradient(135deg, #130021 0%, #3a0066 100%)"
     if os.path.exists("title_bg.png"):
         try:
-            with open("title_bg.png", "rb") as f:
-                encoded = base64.b64encode(f.read()).decode()
+            with open("title_bg.png", "rb") as f: encoded = base64.b64encode(f.read()).decode()
             bg_style_raw = f"url(data:image/png;base64,{encoded}) center/cover"
         except Exception: pass
 
-    # CSSスタイル
     css_code = """
         <style>
         .stApp { background-color: #ffffff; color: #000000; }
@@ -138,10 +152,7 @@ if check_password():
             background-color: #98FB98 !important; color: #000000 !important; font-weight: bold; border-radius: 8px; border: 1px solid #000000; width: 100%; height: 45px;
         }
         .group-container { border: 1px solid #e2e8f0; border-radius: 10px; padding: 15px; margin-bottom: 20px; background-color: #fafafa; }
-        .custom-title-banner { 
-            background: BACKGROUND_PLACEHOLDER;
-            padding: 40px 20px; border-radius: 12px; text-align: center; margin-bottom: 30px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); 
-        }
+        .custom-title-banner { background: BACKGROUND_PLACEHOLDER; padding: 40px 20px; border-radius: 12px; text-align: center; margin-bottom: 30px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); }
         .custom-title-banner h1 { color: #ffffff !important; font-size: 34px !important; font-weight: 800 !important; text-shadow: 0 0 10px #00ff00 !important; margin: 0 !important; }
         .custom-title-banner p { color: #ff00ff !important; font-size: 18px !important; font-weight: bold !important; text-shadow: 0 0 8px #ff00ff !important; margin-top: 10px !important; }
         [data-testid="stSidebar"] { background: BACKGROUND_PLACEHOLDER; border-right: 2px solid #ff00ff; }
@@ -189,8 +200,40 @@ if check_password():
                     st.success(f"🎉 {selected_liq} を記録しました！")
 
     elif page == "🧪 リキッドマスター登録":
-        new_liq_name = st.text_input("📦 新しいリキッド名", key="master_target_liquid_name")
-        st.subheader("🧪 配合割合の入力")
+        df_master = load_data_from_db("Liquid_Master", LIQUID_MASTER_COLS)
+        
+        # === 🗑️ 登録データ一覧・編集・削除管理セクション ===
+        st.subheader("📦 登録済みのリキッド一覧・編集・削除")
+        if df_master.empty:
+            st.caption("現在登録されているリキッドはありません。")
+        else:
+            for index, row in df_master.iterrows():
+                col_name, col_detail, col_btn1, col_btn2 = st.columns([2, 4, 1, 1])
+                with col_name: st.markdown(f"**{row['リキッド名']}**")
+                with col_detail: st.caption(row['配合詳細'])
+                with col_btn1:
+                    if st.button("📝 編集", key=f"edit_btn_{index}"):
+                        st.session_state.edit_target = row['リキッド名']
+                        st.info(f"「{row['リキッド名']}」の編集モードを開始しました。下の入力欄で修正してください。")
+                with col_btn2:
+                    if st.button("🗑️ 削除", key=f"del_btn_{index}"):
+                        df_updated = df_master.drop(index)
+                        save_all_data_to_db("Liquid_Master", df_updated, LIQUID_MASTER_COLS)
+                        st.success(f"「{row['リキッド名']}」を削除しました。")
+                        st.rerun()
+
+        st.markdown("---")
+        
+        # === ✍️ 新規登録＆編集入力フォーム ===
+        if st.session_state.edit_target:
+            st.subheader(f"📝 「{st.session_state.edit_target}」の編集・上書き")
+            # 既存の名前を初期値にする
+            new_liq_name = st.text_input("📦 リキッド名", value=st.session_state.edit_target, key="master_target_liquid_name_edit")
+        else:
+            st.subheader("🧪 新規リキッドの登録")
+            new_liq_name = st.text_input("📦 新しいリキッド名", value="", key="master_target_liquid_name_new")
+            
+        st.write("配合割合を入力してください。")
         
         g1_total = 0.0
         g2_total = 0.0
@@ -247,7 +290,10 @@ if check_password():
             col_m4.metric("🏆 総合合計", f"{total_all:.1f} %")
         st.markdown("---")
 
-        if st.button("💾 マスターに登録", key="btn_save_master"):
+        # 💾 保存処理（新規登録 or 編集上書き）
+        btn_label = "💾 編集内容を上書き保存" if st.session_state.edit_target else "💾 マスターに登録"
+        
+        if st.button(btn_label, key="btn_save_master"):
             if not new_liq_name:
                 st.error("リキッド名を入力してください")
             else:
@@ -260,8 +306,26 @@ if check_password():
                     st.error("比率が0.1%以上の成分を1つ以上入力してください")
                 else:
                     detail_str = ", ".join(parts)
-                    save_data_to_db("Liquid_Master", {"リキッド名": new_liq_name, "配合詳細": detail_str}, LIQUID_MASTER_COLS)
-                    st.success(f"🎉 「{new_liq_name}」を登録しました！")
+                    
+                    if st.session_state.edit_target:
+                        # 💡 編集モードの場合は、元々の一覧から古いデータを消して、新しい内容に差し替える
+                        df_master = df_master[df_master["リキッド名"] != st.session_state.edit_target]
+                        new_row = pd.DataFrame([{"リキッド名": new_liq_name, "配合詳細": detail_str}])
+                        df_updated = pd.concat([df_master, new_row], ignore_index=True)
+                        save_all_data_to_db("Liquid_Master", df_updated, LIQUID_MASTER_COLS)
+                        st.success(f"🎉 「{new_liq_name}」に編集内容を上書き保存しました！")
+                        st.session_state.edit_target = None  # 編集モード終了
+                    else:
+                        # 新規登録モード
+                        save_data_to_db("Liquid_Master", {"リキッド名": new_liq_name, "配合詳細": detail_str}, LIQUID_MASTER_COLS)
+                        st.success(f"🎉 「{new_liq_name}」を新規登録しました！")
+                        
+                    st.rerun()
+                    
+        if st.session_state.edit_target:
+            if st.button("❌ 編集をキャンセル"):
+                st.session_state.edit_target = None
+                st.rerun()
 
     elif page == "📊 成分紹介":
         try:
