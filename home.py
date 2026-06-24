@@ -102,7 +102,7 @@ if check_password():
             bg_style_raw = f"url(data:image/png;base64,{encoded}) center/cover"
         except Exception: pass
 
-    # CSSで文字色を徹底的に白(#ffffff)に指定
+    # CSSで文字色・サイドバーを統一
     st.markdown(f"""
         <style>
         .stApp {{ background-color: #ffffff; color: #000000; }}
@@ -120,31 +120,26 @@ if check_password():
         .custom-title-banner h1 {{ color: #ffffff !important; font-size: 34px !important; font-weight: 800 !important; text-shadow: 0 0 10px #00ff00 !important; margin: 0 !important; }}
         .custom-title-banner p {{ color: #ff00ff !important; font-size: 18px !important; font-weight: bold !important; text-shadow: 0 0 8px #ff00ff !important; margin-top: 10px !important; }}
         
-        /* 🎨 サイドバーおしゃれ化（白文字徹底統一版） */
+        /* サイドバーおしゃれ化（白文字徹底統一版） */
         [data-testid="stSidebar"] {{ 
             background: {bg_style_raw};
             border-right: 2px solid #ff00ff;
         }}
-        /* 「メニューを選択」の文字を白＋ネオングリーン影に */
         [data-testid="stSidebar"] .stRadio > label div p {{ 
             color: #ffffff !important; font-weight: 900 !important; font-size: 18px !important; text-shadow: 0 0 5px #00ff00 !important; margin-bottom: 10px;
         }}
-        /* メニューの選択肢のテキストをすべて強制的に「真っ白」にする */
         [data-testid="stSidebar"] .stRadio div[role="radiogroup"] label span p,
         [data-testid="stSidebar"] .stRadio div[role="radiogroup"] label div p,
         [data-testid="stSidebar"] .stRadio div[role="radiogroup"] label {{ 
             color: #ffffff !important; font-weight: bold !important; font-size: 14px !important;
         }}
-        /* ラジオボタンの外枠 */
         [data-testid="stSidebar"] div[data-baseweb="radio"] div {{ 
             border-color: #00ff00 !important; background-color: rgba(0, 0, 0, 0.4) !important;
         }}
-        /* 💡 選択されているメニューだけは「ネオンピンク」に光らせる */
         [data-testid="stSidebar"] div[data-baseweb="radio"][aria-checked="true"] span p,
         [data-testid="stSidebar"] div[data-baseweb="radio"][aria-checked="true"] div p {{
             color: #ff00ff !important; text-shadow: 0 0 8px #ff00ff !important;
         }}
-        /* 選択されているラジオボタンのドット */
         [data-testid="stSidebar"] div[data-baseweb="radio"][aria-checked="true"] div div {{
             background-color: #ff00ff !important;
         }}
@@ -176,14 +171,3 @@ if check_password():
         if df_master.empty:
             st.warning("⚠️ まだリキッドが登録されていません。")
         else:
-            selected_liq = st.selectbox("🚬 リキッドを選択", df_master["リキッド名"].tolist())
-            liq_detail = df_master[df_master["リキッド名"] == selected_liq]["配合詳細"].values[0]
-            st.caption(f"配合: {liq_detail}")
-            puffs = st.slider("パフ数", 1, 15, 3)
-            log_date = st.date_input("日付", datetime.date.today())
-            if st.button("📊 ワンタップで記録完了！"):
-                new_log_row = {"日付": log_date.strftime("%Y-%m-%d"), "リキッド名": selected_liq, "パフ数": puffs, "配合詳細": liq_detail, "体感した効果": "", "体感メモ": ""}
-                if save_data_to_db("Attraction_Logs", new_log_row, LOG_COLS):
-                    st.success(f"🎉 {selected_liq} を記録しました！")
-
-    elif page == "🧪 リキッドマスター登録
