@@ -2,13 +2,12 @@ import streamlit as st
 import pandas as pd
 
 st.title("📖 成分ギャラリー(閲覧)")
-st.write("登録済みの成分データを詳細項目別に確認できます。")
+st.write("登録済みの成分データを分類別・詳細項目別に確認できます。")
 
 # 📊 アプリ側の共通カラム定義
 GALLERY_COLS = ["成分名", "分類", "効果", "効果時間", "ロケーション", "香り"]
 
-# 💡 【重要】古い「未登録」のデータを強制的にリセットしてExcelから読み直すための設定
-# ※一度正しく読み込まれた後は、このフラグをTrueのままにしておけば何度もリセットされません。
+# 💡 古いデータを一新してExcelから読み直すための設定
 FORCE_RESET = True 
 
 # 1. データベースからデータを読み込む
@@ -31,13 +30,10 @@ if df_gallery.empty or FORCE_RESET:
             
             for sheet_name, cat_label in categories_map.items():
                 if sheet_name in sheets:
-                    # 💡 スキャン開始位置を調整（0行目から読み込み、後から見出し行を探す最も安全な方法）
                     df_sheet = pd.read_excel(excel_file, sheet_name=sheet_name, header=0)
-                    
-                    # すべての文字を文字列にして前後の空白を削除
                     df_sheet.columns = [str(c).strip() for c in df_sheet.columns]
                     
-                    # もし最初の読み込みでズレていたら、データ行の中から「成分名」がある行を探して見出しに再設定
+                    # 見出し行の位置を自動アジャスト
                     if "成分名" not in df_sheet.columns:
                         for idx, row in df_sheet.iterrows():
                             if "成分名" in row.values:
@@ -45,17 +41,14 @@ if df_gallery.empty or FORCE_RESET:
                                 df_sheet.columns = [str(c).strip() for c in df_sheet.columns]
                                 break
                     
-                    # データの抽出ループ
                     for _, row in df_sheet.iterrows():
                         name = row.get("成分名")
                         if pd.isna(name) or str(name).strip() == "成分名" or str(name).strip() == "" or str(name).strip() == "nan":
                             continue
                         
-                        # 💡 実際のExcelの列名に完全一致させて抽出
                         eff_val = row.get("効果")
-                        dur_val = row.get("時間")  # カンナビノイド/半合成/テルペン共通の「時間」列
+                        dur_val = row.get("時間")  # Excelの「時間」列
                         
-                        # 分類によって取得する列を分ける
                         if cat_label == "テルペン":
                             loc_val = "-"
                             scent_val = row.get("香り")
@@ -63,7 +56,6 @@ if df_gallery.empty or FORCE_RESET:
                             loc_val = row.get("ロケーション")
                             scent_val = "-"
                         
-                        # nan（空欄）の文字を「-」に綺麗に整える関数
                         def clean_val(v):
                             return str(v).strip() if not pd.isna(v) and str(v).strip() != "nan" and str(v).strip() != "" else "-"
                         
@@ -78,21 +70,21 @@ if df_gallery.empty or FORCE_RESET:
             
             if restored_rows:
                 df_restored = pd.DataFrame(restored_rows)
-                # データベース（スプレッドシート）を完全に新しい正しいデータで上書き！
                 save_all_data_to_db("Gallery_Master", df_restored, GALLERY_COLS)
                 df_gallery = df_restored
-                st.success("🎉 成分表のExcelから「効果」「時間」「ロケーション」「香り」を100%完全に同期しました！")
+                st.success("🎉 成分表Excelからすべての詳細データを分類別に同期しました！")
         except Exception as e:
             st.error(f"❌ Excel自動抽出エラー: {e}")
 
-# 2. データの画面表示処理
+# 2. 分類ごとの振り分け表示処理
 if df_gallery.empty:
     st.info("まだギャラリーにデータがありません。")
 else:
-    # 表示する順番を固定
-    categories = ["カンナビノイド", "半合成", "テルペン"]
+    # 💡 指定の分類ごとにループを回して、自動で完全に振り分けます
+    target_categories = ["カンナビノイド", "半合成", "テルペン"]
     
-    for cat in categories:
+    for cat in target_categories:
+        # この分類に該当するデータだけを抽出
         cat_items = df_gallery[df_gallery["分類"] == cat]
         if cat_items.empty:
             continue
@@ -109,7 +101,7 @@ else:
             loc = item.get("ロケーション", "-")
             scent = item.get("香り", "-")
             
-            # テルペンなら「香り」、それ以外なら「ロケーション」をカードの下部に表示
+            # テルペンなら香り、それ以外ならロケーションを表示
             sub_info_html = f'<div style="margin-top:4px;">🍋 <b>香り:</b> {scent}</div>' if cat == "テルペン" else f'<div style="margin-top:4px;">📍 <b>ロケーション:</b> {loc}</div>'
             
             card_html = (
