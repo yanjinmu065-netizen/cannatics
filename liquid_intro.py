@@ -5,8 +5,8 @@ import pandas as pd
 LIQUID_MASTER_COLS = ["リキッド名", "配合詳細"]
 LOG_COLS = ["日付", "リキッド名", "パフ数", "配合詳細", "体感した効果", "体感メモ", "画像"]
 
-st.title("📸 リキッド・成分紹介 & ギャラリー")
-st.write("Excelの全成分マスター一覧と、各リキッドの写真・レビュー履歴をまとめて確認できます。")
+st.title("📸 リキッド紹介 & ギャラリー")
+st.write("各リキッドの写真・レビュー履歴と、Excelの全成分マスター一覧をまとめて確認できます。")
 
 # 1. データベース（Excel / スプレッドシート）からデータを取得
 if 'load_data_from_db' in globals():
@@ -17,7 +17,64 @@ else:
     df_logs = pd.DataFrame(columns=LOG_COLS)
 
 # =========================================================
-# 📊 【最優先】Excelの成分一覧表（効果、効果時間、ロケーション、香りを網羅）
+# 🚬 【メイン】ここから各リキッドの個別詳細・レビュー履歴
+# =========================================================
+if not df_master.empty:
+    all_liquids = df_master["リキッド名"].dropna().unique().tolist()
+elif not df_logs.empty:
+    all_liquids = df_logs["リキッド名"].dropna().unique().tolist()
+else:
+    all_liquids = []
+
+if not all_liquids:
+    st.warning("⚠️ 現在、登録されているリキッドやレビュー履歴はありません。")
+else:
+    selected_liq = st.selectbox("🚬 詳細を確認するリキッドを選択", all_liquids)
+    
+    # 選択リキッドの配合内容を表示
+    liq_row = df_master[df_master["リキッド名"] == selected_liq] if not df_master.empty else pd.DataFrame()
+    if not liq_row.empty:
+        st.info(f"📋 **このリキッドの現在の配合詳細:** {liq_row['配合詳細'].values[0]}")
+
+    # 📸 フォトギャラリー
+    st.subheader("🖼️ フォトギャラリー")
+    target_logs = df_logs[df_logs["リキッド名"] == selected_liq].copy() if not df_logs.empty else pd.DataFrame()
+    
+    if not target_logs.empty:
+        target_logs['sort_id'] = range(len(target_logs))
+        target_logs = target_logs.sort_values(by=['日付', 'sort_id'], ascending=[False, False])
+        img_logs = target_logs[target_logs["画像"].notna() & (target_logs["画像"] != "")]
+        
+        if not img_logs.empty:
+            cols = st.columns(3)
+            for i, (_, row) in enumerate(img_logs.iterrows()):
+                with cols[i % 3]:
+                    st.image(f"data:image/png;base64,{row['画像']}", use_column_width=True)
+                    st.caption(f"📅 {row['日付']}")
+        else:
+            st.caption("📸 このリキッドに登録された写真はありません。")
+    else:
+        st.caption("📸 写真はありません。")
+
+    st.markdown("---")
+
+    # 📋 これまでのレビュー履歴（日付カラムは非表示）
+    st.subheader("📋 これまでのレビュー履歴")
+    if not target_logs.empty:
+        display_rows = []
+        for _, row in target_logs.iterrows():
+            eff_text = row['体感した効果']
+            if (pd.isna(eff_text) or eff_text == '') and pd.notna(row['パフ数']) and row['パフ数'] > 0:
+                eff_text = f"🚬 吸引記録 ({row['パフ数']} puffs)"
+            memo_text = row['体感メモ'] if pd.notna(row['体感メモ']) and row['体感メモ'] != '' else "ーー"
+            display_rows.append({"内容": eff_text, "メモ": memo_text})
+        
+        st.table(pd.DataFrame(display_rows))
+    else:
+        st.caption("📋 レビュー履歴はまだありません。")
+
+# =========================================================
+# 📊 【移動】リキッド紹介の下に表示させる成分マスター一覧
 # =========================================================
 st.markdown("---")
 st.header("📋 成分マスター一覧（Excelデータ）")
@@ -66,64 +123,3 @@ with tab3:
         {"成分名": "オシメン", "効果": "抗ウイルス作用, うっ滞除去, 爽快感", "効果時間": "1〜2h", "香り": "甘いフローラル, トロピカルフルーツ, 木質"}
     ]
     st.table(pd.DataFrame(terpene_data))
-
-st.markdown("---")
-
-# =========================================================
-# 🚬 ここから各リキッドの個別詳細・レビュー履歴
-# =========================================================
-st.header("🚬 各リキッドのギャラリー＆レビュー履歴")
-
-if not df_master.empty:
-    all_liquids = df_master["リキッド名"].dropna().unique().tolist()
-elif not df_logs.empty:
-    all_liquids = df_logs["リキッド名"].dropna().unique().tolist()
-else:
-    all_liquids = []
-
-if not all_liquids:
-    st.caption("現在、登録されているリキッドやレビュー履歴はありません。")
-else:
-    selected_liq = st.selectbox("詳細を確認するリキッドを選択", all_liquids)
-    
-    # 選択リキッドの配合内容を表示
-    liq_row = df_master[df_master["リキッド名"] == selected_liq] if not df_master.empty else pd.DataFrame()
-    if not liq_row.empty:
-        st.info(f"📋 **このリキッドの現在の配合詳細:** {liq_row['配合詳細'].values[0]}")
-
-    # 📸 フォトギャラリー
-    st.subheader("🖼️ フォトギャラリー")
-    target_logs = df_logs[df_logs["リキッド名"] == selected_liq].copy() if not df_logs.empty else pd.DataFrame()
-    
-    if not target_logs.empty:
-        target_logs['sort_id'] = range(len(target_logs))
-        target_logs = target_logs.sort_values(by=['日付', 'sort_id'], ascending=[False, False])
-        img_logs = target_logs[target_logs["画像"].notna() & (target_logs["画像"] != "")]
-        
-        if not img_logs.empty:
-            cols = st.columns(3)
-            for i, (_, row) in enumerate(img_logs.iterrows()):
-                with cols[i % 3]:
-                    st.image(f"data:image/png;base64,{row['画像']}", use_column_width=True)
-                    st.caption(f"📅 {row['日付']}")
-        else:
-            st.caption("📸 このリキッドに登録された写真はありません。")
-    else:
-        st.caption("📸 写真はありません。")
-
-    st.markdown("---")
-
-    # 📋 これまでのレビュー履歴（ご要望に合わせて日付のカラムは非表示）
-    st.subheader("📋 これまでのレビュー履歴")
-    if not target_logs.empty:
-        display_rows = []
-        for _, row in target_logs.iterrows():
-            eff_text = row['体感した効果']
-            if (pd.isna(eff_text) or eff_text == '') and pd.notna(row['パフ数']) and row['パフ数'] > 0:
-                eff_text = f"🚬 吸引記録 ({row['パフ数']} puffs)"
-            memo_text = row['体感メモ'] if pd.notna(row['体感メモ']) and row['体感メモ'] != '' else "ーー"
-            display_rows.append({"内容": eff_text, "メモ": memo_text})
-        
-        st.table(pd.DataFrame(display_rows))
-    else:
-        st.caption("📋 レビュー履歴はまだありません。")
