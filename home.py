@@ -166,14 +166,22 @@ if check_password():
         .custom-title-banner h1 { color: #ffffff !important; font-size: 34px !important; font-weight: 800 !important; text-shadow: 0 0 10px #00ff00 !important; margin: 0 !important; }
         .custom-title-banner p { color: #ff00ff !important; font-size: 18px !important; font-weight: bold !important; text-shadow: 0 0 8px #ff00ff !important; margin-top: 10px !important; }
         [data-testid="stSidebar"] { background: BACKGROUND_PLACEHOLDER; border-right: 2px solid #ff00ff; }
+        [data-testid="stSidebar"] .stRadio > label div p { color: #ffffff !important; font-weight: 900 !important; font-size: 18px !important; text-shadow: 0 0 5px #00ff00 !important; margin-bottom: 10px; }
+        [data-testid="stSidebar"] .stRadio div[role="radiogroup"] label span p,
+        [data-testid="stSidebar"] .stRadio div[role="radiogroup"] label div p,
+        [data-testid="stSidebar"] .stRadio div[role="radiogroup"] label { color: #ffffff !important; font-weight: bold !important; font-size: 14px !important; }
+        [data-testid="stSidebar"] div[data-baseweb="radio"] div { border-color: #00ff00 !important; background-color: rgba(0, 0, 0, 0.4) !important; }
+        [data-testid="stSidebar"] div[data-baseweb="radio"][aria-checked="true"] span p,
+        [data-testid="stSidebar"] div[data-baseweb="radio"][aria-checked="true"] div p { color: #ff00ff !important; text-shadow: 0 0 8px #ff00ff !important; }
+        [data-testid="stSidebar"] div[data-baseweb="radio"][aria-checked="true"] div div { background-color: #ff00ff !important; }
         </style>
     """.replace("BACKGROUND_PLACEHOLDER", bg_style_raw)
 
     st.markdown(css_code, unsafe_allow_html=True)
 
-    # 🚬 メニュー選択（サイドバー）
-    page = st.sidebar.selectbox(
-        "メニューを選択", 
+    # 🚬 元のラジオボタン形式のサイドメニューに戻しました
+    page = st.sidebar.radio(
+        "メニュー項目", 
         ["📝 ワンタップ吸引記録", "🧪 リキッドマスター登録", "🌐 新成分マスター登録", "📅 履歴カレンダー", "📸 リキッド紹介", "📋 成分ギャラリー"]
     )
 
@@ -191,9 +199,7 @@ if check_password():
     LIQUID_MASTER_COLS = ["リキッド名", "配合詳細"]
     LOG_COLS = ["日付", "リキッド名", "パフ数", "配合詳細", "体感した効果", "体感メモ"]
 
-    # ==========================================
-    # 各ページの条件分岐（エラーの無いよう並列処理）
-    # ==========================================
+    # --- 各ページの条件分岐 ---
     if page == "📝 ワンタップ吸引記録":
         df_master = load_data_from_db("Liquid_Master", LIQUID_MASTER_COLS)
         if df_master.empty:
