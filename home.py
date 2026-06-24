@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import os
 
-# 1. ページ設定とカスタムCSS（デザイン修正：指定箇所のみ適用）
+# 1. ページ設定とカスタムCSS（指定のデザインのみ適用）
 st.set_page_config(page_title="Cannatics", layout="wide")
 
 st.markdown("""
@@ -20,7 +20,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# 2. 簡易的なログイン管理（元々のログイン画面の仕組み）
+# 2. 簡易的なログイン管理
 if "authenticated" not in st.session_state:
     st.session_state["authenticated"] = False
 
@@ -28,17 +28,17 @@ if not st.session_state["authenticated"]:
     st.title("🔒 ログイン - Cannatics")
     password_input = st.text_input("パスワードを入力してください", type="password")
     if st.button("ログイン"):
-        # ここにご自身の元のパスワードを設定してください（例: "your_password"）
+        # ここにご自身の元のパスワードを設定してください
         if password_input == "your_password":
             st.session_state["authenticated"] = True
             st.rerun()
         else:
             st.error("パスワードが違います")
 else:
-    # 3. メニュー切り替え（元のメニュー ＋「成分紹介」を追加）
+    # 3. メニュー切り替え
     page = st.sidebar.radio("メニューを選択", ["配合電卓・分析", "新成分マスター登録", "履歴カレンダー", "成分紹介"])
 
-    # --- 配合電卓・分析（修正前の元のコードの状態に戻しています） ---
+    # --- 配合電卓・分析（元の状態を完全キープ） ---
     if page == "配合電卓・分析":
         st.title("🌿 Cannatics (カンナティクス)")
         st.subheader("🧪 グループ別・配合電卓")
@@ -70,7 +70,7 @@ else:
         st.title("📅 履歴カレンダー")
         st.write("ここに配合履歴のカレンダーを表示します。")
 
-    # --- 成分紹介（Excel表示の改善版） ---
+    # --- 成分紹介（シート切り替え対応・見栄え修正版） ---
     elif page == "成分紹介":
         st.title("📊 成分紹介ページ")
         st.write("`data.xlsx` に登録されている成分の一覧表です。")
@@ -79,16 +79,30 @@ else:
         
         if os.path.exists(file_path):
             try:
-                # Excelファイルを読み込み
-                df = pd.read_excel(file_path)
+                # Excelファイルのすべてのシート名を取得
+                excel_file = pd.ExcelFile(file_path)
+                sheet_names = excel_file.sheet_names
                 
-                # データが空っぽでなければ表として綺麗に表示
+                # サイドバーまたは画面上にシート選択のドロップダウンを表示
+                selected_sheet = st.selectbox("表示するシートを選択してください", sheet_names)
+                
+                # 選択されたシートを読み込む（1行目のズレを自動調整）
+                df = pd.read_excel(file_path, sheet_name=selected_sheet)
+                
+                # もし最初の行が空欄だらけで、2行目に項目名があるような場合の簡易クリーンアップ
+                if "Unnamed:" in "".join([str(col) for col in df.columns]):
+                    # 最初の行を項目名として仕切り直す
+                    df = pd.read_excel(file_path, sheet_name=selected_sheet, header=1)
+                
+                # 完全に空の行や列を非表示にする調整をして表示
+                df = df.dropna(how='all')
+                
                 if not df.empty:
                     st.dataframe(df, use_container_width=True)
                 else:
-                    st.info("Excelファイルの中にデータが入っていません（空のファイルです）。")
+                    st.info(f"【{selected_sheet}】シートの中にはデータが入っていません。")
+                    
             except Exception as e:
                 st.error(f"Excelファイルの読み込み中にエラーが発生しました: {e}")
-                st.info("※ openpyxl がインストールされていないか、ファイルが破損している可能性があります。")
         else:
-            st.warning("`data.xlsx` が見つかりませんでした。GitHubの `main` ブランチにファイルが正しくアップロードされているか確認してください。")
+            st.warning("`data.xlsx` が見つかりませんでした。")
