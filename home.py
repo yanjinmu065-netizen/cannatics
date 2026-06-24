@@ -102,7 +102,7 @@ if check_password():
             bg_style_raw = f"url(data:image/png;base64,{encoded}) center/cover"
         except Exception: pass
 
-    # CSSを構文エラーが出ない安全な表記で注入
+    # CSSで文字色を徹底的に白(#ffffff)に指定
     st.markdown(f"""
         <style>
         .stApp {{ background-color: #ffffff; color: #000000; }}
@@ -120,23 +120,31 @@ if check_password():
         .custom-title-banner h1 {{ color: #ffffff !important; font-size: 34px !important; font-weight: 800 !important; text-shadow: 0 0 10px #00ff00 !important; margin: 0 !important; }}
         .custom-title-banner p {{ color: #ff00ff !important; font-size: 18px !important; font-weight: bold !important; text-shadow: 0 0 8px #ff00ff !important; margin-top: 10px !important; }}
         
-        /* サイドバーおしゃれ化 */
+        /* 🎨 サイドバーおしゃれ化（白文字徹底統一版） */
         [data-testid="stSidebar"] {{ 
             background: {bg_style_raw};
             border-right: 2px solid #ff00ff;
         }}
+        /* 「メニューを選択」の文字を白＋ネオングリーン影に */
         [data-testid="stSidebar"] .stRadio > label div p {{ 
             color: #ffffff !important; font-weight: 900 !important; font-size: 18px !important; text-shadow: 0 0 5px #00ff00 !important; margin-bottom: 10px;
         }}
-        [data-testid="stSidebar"] .stRadio div[role="radiogroup"] label span p {{ 
+        /* メニューの選択肢のテキストをすべて強制的に「真っ白」にする */
+        [data-testid="stSidebar"] .stRadio div[role="radiogroup"] label span p,
+        [data-testid="stSidebar"] .stRadio div[role="radiogroup"] label div p,
+        [data-testid="stSidebar"] .stRadio div[role="radiogroup"] label {{ 
             color: #ffffff !important; font-weight: bold !important; font-size: 14px !important;
         }}
+        /* ラジオボタンの外枠 */
         [data-testid="stSidebar"] div[data-baseweb="radio"] div {{ 
             border-color: #00ff00 !important; background-color: rgba(0, 0, 0, 0.4) !important;
         }}
-        [data-testid="stSidebar"] div[data-baseweb="radio"][aria-checked="true"] span p {{
+        /* 💡 選択されているメニューだけは「ネオンピンク」に光らせる */
+        [data-testid="stSidebar"] div[data-baseweb="radio"][aria-checked="true"] span p,
+        [data-testid="stSidebar"] div[data-baseweb="radio"][aria-checked="true"] div p {{
             color: #ff00ff !important; text-shadow: 0 0 8px #ff00ff !important;
         }}
+        /* 選択されているラジオボタンのドット */
         [data-testid="stSidebar"] div[data-baseweb="radio"][aria-checked="true"] div div {{
             background-color: #ff00ff !important;
         }}
@@ -178,9 +186,4 @@ if check_password():
                 if save_data_to_db("Attraction_Logs", new_log_row, LOG_COLS):
                     st.success(f"🎉 {selected_liq} を記録しました！")
 
-    elif page == "🧪 リキッドマスター登録":
-        new_liq_name = st.text_input("📦 新しいリキッド名")
-        st.markdown('<div class="group-container"><b>配合を入力</b>', unsafe_allow_html=True)
-        c1, c2 = st.columns([2, 1])
-        with c1: name = st.selectbox("成分", g1_presets + g2_presets)
-        with c2: pct = st
+    elif page == "🧪 リキッドマスター登録
