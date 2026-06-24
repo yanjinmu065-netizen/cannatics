@@ -1,54 +1,305 @@
 import streamlit as st
+import pandas as pd
+import datetime
+import os
+import base64
 
-st.title("🌐 新成分のマスター登録")
-st.write("インターネットで見つけた新しい成分を、配合ドロップダウンメニューへ追加できます。")
+# --- 🔌 Googleスプレッドシート連携用ライブラリ ---
+try:
+    import gspread
+    from google.oauth2.service_account import Credentials
+    HAS_GSPREAD = True
+except ImportError:
+    HAS_GSPREAD = False
 
-# 入力欄の識別キーを綺麗に分離
-new_comp_name = st.text_input("新成分名を入力 (例: THCH, CBDP)", key="sb_new_comp_name_input")
-new_comp_group = st.radio("成分の分類（割り当てるグループ）", ["主要精神活性（強い）", "ベース（CBD/CBG等）", "テルペン・その他", "主要成分"], key="sb_new_comp_group_radio")
+# --- ページ設定とパスワード保護 ---
+st.set_page_config(page_title="Cannatics", layout="centered")
 
-if st.button("成分マスターに登録・同期", key="sb_btn_submit_component"):
-    if new_comp_name:
-        clean_name = new_comp_name.strip()
-        
-        # グループキーの割り当て
-        if "主要精神活性" in new_comp_group or "主要成分" in new_comp_group:
-            g_key = '活性'
-        elif "ベース" in new_comp_group:
-            g_key = 'ベース'
+def check_password():
+    if "authenticated" not in st.session_state:
+        st.session_state.authenticated = False
+    if st.session_state.authenticated:
+        return True
+    
+    st.title("🔒 ログイン - Cannatics")
+    username = st.text_input("ログインID", key="login_username")
+    password = st.text_input("パスワード", type="password", key="login_password")
+    
+    if st.button("ログイン"):
+        if username == "0602" and password == "admin123": 
+            st.session_state.authenticated = True
+            st.rerun()
         else:
-            g_key = 'テルペン'
-            
-        # 1. セッションのマスター配列に安全に追加
-        if "custom_components" not in st.session_state:
-            st.session_state.custom_components = []
-            
-        # 重複チェックをしてから追加
-        if not any(c['name'] == clean_name for c in st.session_state.custom_components):
-            st.session_state.custom_components.append({"name": clean_name, "group": g_key})
+            st.error("ログインIDまたはパスワードが違います")
+    return False
+
+if check_password():
+
+    # 💡 外部ファイルや動的追加に必須となるセッション変数の初期化
+    if "custom_components" not in st.session_state:
+        st.session_state["custom_components"] = []
+    if "m_g1" not in st.session_state: st.session_state.m_g1 = 1
+    if "m_g2" not in st.session_state: st.session_state.m_g2 = 1
+    if "m_g3" not in st.session_state: st.session_state.m_g3 = 1
+
+    # --- 🔗 データベース接続・読み書き関数 ---
+    def get_spreadsheet_client():
+        if not HAS_GSPREAD: return None
+        try:
+            if "gcp_service_account" in st.secrets:
+                creds_dict = dict(st.secrets["gcp_service_account"])
+                scopes = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
+                creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
+                return gspread.authorize(creds)
+            elif os.path.exists("secrets.json"):
+                scopes = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
+                creds = Credentials.from_service_account_file("secrets.json", scopes=scopes)
+                return gspread.authorize(creds)
+        except Exception: return None
+        return None
+
+    def load_data_from_db(sheet_name, default_cols):
+        client = get_spreadsheet_client()
+        if client:
+            try:
+                sh = client.open("Cannatics_Database")
+                worksheet = sh.worksheet(sheet_name)
+                df = pd.DataFrame(worksheet.get_all_records())
+                return df if not df.empty else pd.DataFrame(columns=default_cols)
+            except Exception: pass
+        file_name = f"{sheet_name}.csv"
+        if os.path.exists(file_name): return pd.read_csv(file_name)
+        return pd.DataFrame(columns=default_cols)
+
+    def save_data_to_db(sheet_name, new_row_dict, default_cols):
+        client = get_spreadsheet_client()
+        if client:
+            try:
+                sh = client.open("Cannatics_Database")
+                worksheet = sh.worksheet(sheet_name)
+                row_to_append = [new_row_dict.get(col, "") for col in default_cols]
+                worksheet.append_row(row_to_append)
+                return True
+            except Exception: pass
+        df = load_data_from_db(sheet_name, default_cols)
+        df = pd.concat([df, pd.DataFrame([new_row_dict])], ignore_index=True)
+        df.to_csv(f"{sheet_name}.csv", index=False)
+        return True
+
+    @st.cache_data
+    def load_excel_presets():
+        try:
+            df_cannabinoid = pd.read_excel("data.xlsx", sheet_name="カンナビノイド", header=2)
+            df_synthetic = pd.read_excel("data.xlsx", sheet_name="半合成", header=2)
+            df_terpene = pd.read_excel("data.xlsx", sheet_name="テルペン", header=2)
+            g1 = [str(r["成分名"]) for _, r in df_synthetic.dropna(subset=["成分名"]).iterrows()]
+            g2 = [str(r["成分名"]) for _, r in df_cannabinoid.dropna(subset=["成分名"]).iterrows()]
+            g3 = list(df_terpene["成分名"].dropna().unique())
+            return g1, g2, g3
+        except Exception: return ["CRDP", "THA"], ["CBD", "CBG"], ["ミルセン", "リモネン"]
+
+    # 💡 ドロップダウン選択肢（プリセットリスト）をセッション内で安全に管理・同期します
+    if 'g1_presets' not in st.session_state or 'g2_presets' not in st.session_state or 'g3_presets' not in st.session_state:
+        g1_init, g2_init, g3_init = load_excel_presets()
+        st.session_state['g1_presets'] = g1_init
+        st.session_state['g2_presets'] = g2_init
+        st.session_state['g3_presets'] = g3_init
+
+    # 外部の seibunn.py から追加された custom_components があればドロップダウンに随時マージ
+    if "custom_components" in st.session_state:
+        for comp in st.session_state.custom_components:
+            if comp['group'] == '活性' and comp['name'] not in st.session_state['g1_presets']:
+                st.session_state['g1_presets'].append(comp['name'])
+            elif comp['group'] == 'ベース' and comp['name'] not in st.session_state['g2_presets']:
+                st.session_state['g2_presets'].append(comp['name'])
+            elif comp['group'] == 'テルペン' and comp['name'] not in st.session_state['g3_presets']:
+                st.session_state['g3_presets'].append(comp['name'])
+
+    g1_presets = st.session_state['g1_presets']
+    g2_presets = st.session_state['g2_presets']
+    g3_presets = st.session_state['g3_presets']
+
+    # --- 🎨 背景画像処理 ---
+    bg_style_raw = "linear-gradient(135deg, #130021 0%, #3a0066 100%)"
+    if os.path.exists("title_bg.png"):
+        try:
+            with open("title_bg.png", "rb") as f:
+                encoded = base64.b64encode(f.read()).decode()
+            bg_style_raw = f"url(data:image/png;base64,{encoded}) center/cover"
+        except Exception: pass
+
+    # 安全なCSS読み込み処理
+    css_code = """
+        <style>
+        .stApp { background-color: #ffffff; color: #000000; }
+        h1, h2, h3, h4, p, label { color: #000000 !important; font-family: 'Noto Sans JP', sans-serif; }
+        .stButton>button { 
+            background-color: #98FB98 !important; color: #000000 !important; font-weight: bold; border-radius: 8px; border: 1px solid #000000; width: 100%; height: 45px;
+        }
+        .group-container { border: 1px solid #e2e8f0; border-radius: 10px; padding: 15px; margin-bottom: 20px; background-color: #fafafa; }
         
-        # 2. home.py 側で表示しているセレクトボックスの選択肢（リスト）へ直接追加して同期
-        if g_key == '活性':
-            if 'g1_presets' in st.session_state:
-                if clean_name not in st.session_state['g1_presets']:
-                    st.session_state['g1_presets'].append(clean_name)
-            elif 'g1_presets' in globals() and clean_name not in globals()['g1_presets']:
-                globals()['g1_presets'].append(clean_name)
+        /* 統一バナーデザイン */
+        .custom-title-banner { 
+            background: BACKGROUND_PLACEHOLDER;
+            padding: 40px 20px; border-radius: 12px; text-align: center; margin-bottom: 30px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); 
+        }
+        .custom-title-banner h1 { color: #ffffff !important; font-size: 34px !important; font-weight: 800 !important; text-shadow: 0 0 10px #00ff00 !important; margin: 0 !important; }
+        .custom-title-banner p { color: #ff00ff !important; font-size: 18px !important; font-weight: bold !important; text-shadow: 0 0 8px #ff00ff !important; margin-top: 10px !important; }
+        
+        /* サイドバーおしゃれ化（白文字徹底統一デザイン） */
+        [data-testid="stSidebar"] { 
+            background: BACKGROUND_PLACEHOLDER;
+            border-right: 2px solid #ff00ff;
+        }
+        [data-testid="stSidebar"] .stRadio > label div p { 
+            color: #ffffff !important; font-weight: 900 !important; font-size: 18px !important; text-shadow: 0 0 5px #00ff00 !important; margin-bottom: 10px;
+        }
+        [data-testid="stSidebar"] .stRadio div[role="radiogroup"] label span p,
+        [data-testid="stSidebar"] .stRadio div[role="radiogroup"] label div p,
+        [data-testid="stSidebar"] .stRadio div[role="radiogroup"] label { 
+            color: #ffffff !important; font-weight: bold !important; font-size: 14px !important;
+        }
+        [data-testid="stSidebar"] div[data-baseweb="radio"] div { 
+            border-color: #00ff00 !important; background-color: rgba(0, 0, 0, 0.4) !important;
+        }
+        [data-testid="stSidebar"] div[data-baseweb="radio"][aria-checked="true"] span p,
+        [data-testid="stSidebar"] div[data-baseweb="radio"][aria-checked="true"] div p {
+            color: #ff00ff !important; text-shadow: 0 0 8px #ff00ff !important;
+        }
+        [data-testid="stSidebar"] div[data-baseweb="radio"][aria-checked="true"] div div {
+            background-color: #ff00ff !important;
+        }
+        </style>
+    """.replace("BACKGROUND_PLACEHOLDER", bg_style_raw)
+
+    st.markdown(css_code, unsafe_allow_html=True)
+
+    # 📌 サイドバーメニュー
+    page = st.sidebar.radio("メニューを選択", ["📝 ワンタップ吸引記録", "🧪 リキッドマスター登録", "🌐 新成分マスター登録", "📅 履歴カレンダー", "📊 成分紹介"])
+
+    # --- ✨ 共通おしゃれバナー表示 ---
+    banner_titles = {
+        "📝 ワンタップ吸引記録": "ワンタップ吸引記録",
+        "🧪 リキッドマスター登録": "リキッドマスター設定",
+        "🌐 新成分マスター登録": "新成分の追加登録",
+        "📅 履歴カレンダー": "使用履歴カレンダー",
+        "📊 成分紹介": "リキッド紹介 & レビュー"
+    }
+    current_title = banner_titles.get(page, "Cannatics")
+    st.markdown(f"""<div class="custom-title-banner"><h1>🌿 Cannatics</h1><p>{current_title}</p></div>""", unsafe_allow_html=True)
+
+    # -------------------------------------------------------------------------
+    # 各ページの内容
+    # -------------------------------------------------------------------------
+    LIQUID_MASTER_COLS = ["リキッド名", "配合詳細"]
+    LOG_COLS = ["日付", "リキッド名", "パフ数", "配合詳細", "体感した効果", "体感メモ"]
+
+    if page == "📝 ワンタップ吸引記録":
+        df_master = load_data_from_db("Liquid_Master", LIQUID_MASTER_COLS)
+        if df_master.empty:
+            st.warning("⚠️ まだリキッドが登録されていません。")
+        else:
+            selected_liq = st.selectbox("🚬 リキッドを選択", df_master["リキッド名"].tolist())
+            liq_detail = df_master[df_master["リキッド名"] == selected_liq]["配合詳細"].values[0]
+            st.caption(f"配合: {liq_detail}")
+            puffs = st.slider("パフ数", 1, 15, 3)
+            log_date = st.date_input("日付", datetime.date.today())
+            if st.button("📊 ワンタップで記録完了！"):
+                new_log_row = {"日付": log_date.strftime("%Y-%m-%d"), "リキッド名": selected_liq, "パフ数": puffs, "配合詳細": liq_detail, "体感した効果": "", "体感メモ": ""}
+                if save_data_to_db("Attraction_Logs", new_log_row, LOG_COLS):
+                    st.success(f"🎉 {selected_liq} を記録しました！")
+
+    elif page == "🧪 リキッドマスター登録":
+        new_liq_name = st.text_input("📦 新しいリキッド名", key="master_target_liquid_name")
+        st.subheader("🧪 配合割合の入力")
+        
+        g1_total = 0.0
+        g2_total = 0.0
+        g3_total = 0.0
+        
+        # --- ➕ 主要成分エリア ---
+        g1_data = []
+        for i in range(st.session_state.m_g1):
+            c1, c2 = st.columns([2, 1])
+            with c1: name = st.selectbox(f"主要成分 {i+1}", g1_presets, key=f"g1_n_{i}")
+            with c2: pct = st.number_input(f"比率%##{i}", min_value=0.0, max_value=100.0, value=0.0, step=0.1, format="%.1f", key=f"g1_p_{i}")
+            g1_data.append((name, pct))
+            g1_total += pct
+        if st.button("➕ 主要成分を追加", key="btn_add_g1"):
+            st.session_state.m_g1 += 1
+            st.rerun()
+            
+        # --- ➕ カンナビノイド（天然）成分エリア ---
+        g2_data = []
+        for i in range(st.session_state.m_g2):
+            c1, c2 = st.columns([2, 1])
+            with c1: name = st.selectbox(f"天然成分 {i+1}", g2_presets, key=f"g2_n_{i}")
+            with c2: pct = st.number_input(f"比率% (天然)##{i}", min_value=0.0, max_value=100.0, value=0.0, step=0.1, format="%.1f", key=f"g2_p_{i}")
+            g2_data.append((name, pct))
+            g2_total += pct
+        if st.button("➕ カンナビノイド成分を追加", key="btn_add_g2"):
+            st.session_state.m_g2 += 1
+            st.rerun()
+
+        # --- ➕ テルペン成分エリア ---
+        g3_data = []
+        for i in range(st.session_state.m_g3):
+            c1, c2 = st.columns([2, 1])
+            with c1: name = st.selectbox(f"テルペン {i+1}", g3_presets, key=f"g3_n_{i}")
+            with c2: pct = st.number_input(f"比率% (テルペン)##{i}", min_value=0.0, max_value=100.0, value=0.0, step=0.1, format="%.1f", key=f"g3_p_{i}")
+            g3_data.append((name, pct))
+            g3_total += pct
+        if st.button("➕ テルペン成分を追加", key="btn_add_g3"):
+            st.session_state.m_g3 += 1
+            st.rerun()
+
+        # --- 📊 リアルタイムパーセンテージメーター表示 ---
+        total_all = g1_total + g2_total + g3_total
+        
+        st.markdown("---")
+        st.markdown("### 📊 現在の配合比率（リアルタイム計算）")
+        col_m1, col_m2, col_m3, col_m4 = st.columns(4)
+        col_m1.metric("🧬 主要成分 合計", f"{g1_total:.1f} %")
+        col_m2.metric("🌿 天然成分 合計", f"{g2_total:.1f} %")
+        col_m3.metric("🍋 テルペン 合計", f"{g3_total:.1f} %")
+        
+        if total_all > 100.0:
+            st.error(f"🚨 **総合合計が100%を超えています！ ({total_all:.1f} %)**")
+        else:
+            col_m4.metric("🏆 総合合計", f"{total_all:.1f} %")
+        st.markdown("---")
+
+        if st.button("💾 マスターに登録", key="btn_save_master"):
+            if not new_liq_name:
+                st.error("リキッド名を入力してください")
+            else:
+                parts = []
+                for n, p in g1_data + g2_data + g3_data:
+                    if p > 0.0: 
+                        p_str = f"{int(p)}" if p.is_integer() else f"{p:.1f}"
+                        parts.append(f"{n}:{p_str}%")
                 
-        elif g_key == 'ベース':
-            if 'g2_presets' in st.session_state:
-                if clean_name not in st.session_state['g2_presets']:
-                    st.session_state['g2_presets'].append(clean_name)
-            elif 'g2_presets' in globals() and clean_name not in globals()['g2_presets']:
-                globals()['g2_presets'].append(clean_name)
-                
-        elif g_key == 'テルペン':
-            if 'g3_presets' in st.session_state:
-                if clean_name not in st.session_state['g3_presets']:
-                    st.session_state['g3_presets'].append(clean_name)
-            elif 'g3_presets' in globals() and clean_name not in globals()['g3_presets']:
-                globals()['g3_presets'].append(clean_name)
-                
-        st.success(f"🎉「{clean_name}」を選択肢に追加しました！メニューを切り替えるとリキッド登録画面に反映されます。")
-    else:
-        st.error("成分名を入力してください。")
+                if not parts:
+                    st.error("比率が0.1%以上の成分を1つ以上入力してください")
+                else:
+                    detail_str = ", ".join(parts)
+                    save_data_to_db("Liquid_Master", {"リキッド名": new_liq_name, "配合詳細": detail_str}, LIQUID_MASTER_COLS)
+                    st.success(f"🎉 「{new_liq_name}」を登録しました！")
+
+    elif page == "📊 成分紹介":
+        try:
+            with open("review.py", encoding="utf-8") as f:
+                exec(f.read(), globals())
+        except Exception as e: st.error(f"読み込みエラー: {e}")
+
+    elif page == "🌐 新成分マスター登録":
+        try:
+            with open("seibunn.py", encoding="utf-8") as f: 
+                exec(f.read(), globals())
+        except Exception as e: st.error(f"⚠️ 新成分マスターの読み込みに失敗しました: {e}")
+        
+    elif page == "📅 履歴カレンダー":
+        try:
+            with open("calendar.py", encoding="utf-8") as f: 
+                exec(f.read(), globals())
+        except Exception as e: st.error(f"⚠️ 履歴カレンダーの読み込みに失敗しました: {e}")
