@@ -119,17 +119,14 @@ if check_password():
             return g1, g2, g3
         except Exception: return ["CRDP", "THA"], ["CBD", "CBG"], ["ミルセン", "リモネン"]
 
-    # 💡 永久保存用のカラム定義
     COMP_MASTER_COLS = ["成分名", "分類"]
 
-    # ドロップダウンの初期化とシートからの同期
     if 'g1_presets' not in st.session_state or 'g2_presets' not in st.session_state or 'g3_presets' not in st.session_state:
         g1_init, g2_init, g3_init = load_excel_presets()
         st.session_state['g1_presets'] = g1_init
         st.session_state['g2_presets'] = g2_init
         st.session_state['g3_presets'] = g3_init
         
-        # 💡 追加成分をロード
         df_saved_comps = load_data_from_db("Components_Master", COMP_MASTER_COLS)
         if not df_saved_comps.empty:
             for _, r in df_saved_comps.iterrows():
@@ -166,6 +163,10 @@ if check_password():
         .custom-title-banner h1 { color: #ffffff !important; font-size: 34px !important; font-weight: 800 !important; text-shadow: 0 0 10px #00ff00 !important; margin: 0 !important; }
         .custom-title-banner p { color: #ff00ff !important; font-size: 18px !important; font-weight: bold !important; text-shadow: 0 0 8px #ff00ff !important; margin-top: 10px !important; }
         [data-testid="stSidebar"] { background: BACKGROUND_PLACEHOLDER; border-right: 2px solid #ff00ff; }
+        
+        /* セレクトボックスのラベル文字を白く太くする */
+        [data-testid="stSidebar"] label { color: #ffffff !important; font-weight: 900 !important; font-size: 16px !important; text-shadow: 0 0 5px #00ff00 !important; }
+        
         [data-testid="stSidebar"] .stRadio > label div p { color: #ffffff !important; font-weight: 900 !important; font-size: 18px !important; text-shadow: 0 0 5px #00ff00 !important; margin-bottom: 10px; }
         [data-testid="stSidebar"] .stRadio div[role="radiogroup"] label span p,
         [data-testid="stSidebar"] .stRadio div[role="radiogroup"] label div p,
@@ -179,22 +180,38 @@ if check_password():
 
     st.markdown(css_code, unsafe_allow_html=True)
 
-    # 🚬 サイドバーのメニュー構成（改名：成分紹介 → レビュー）
-    page = st.sidebar.radio(
-        "メニュー項目", 
-        [
-            "📝 ワンタップ吸引記録", 
-            "🧪 リキッドマスター登録", 
-            "🌐 新成分マスター登録", 
-            "📅 履歴カレンダー", 
-            "📊 レビュー", 
-            "📖 成分ギャラリー",
-            "📸 リキッド紹介",
-            "✍️ 体感レビュー入力"
-        ]
+    # ==================== 🛠️ サイドメニューのジャンル分け化 ====================
+    st.sidebar.markdown("### 📂 ジャンル選択")
+    genre = st.sidebar.selectbox(
+        "表示するメニューの系統",
+        ["📱 メイン機能・閲覧ページ", "⚙️ マスター登録・管理画面"]
     )
 
-    # 💡 タイトルバナー設定（改名：成分紹介 → レビュー）
+    # ジャンルに紐づく項目を動的に定義
+    if genre == "📱 メイン機能・閲覧ページ":
+        page = st.sidebar.radio(
+            "メニュー項目",
+            [
+                "📝 ワンタップ吸引記録",
+                "📅 履歴カレンダー",
+                "📊 レビュー",
+                "📖 成分ギャラリー",
+                "📸 リキッド紹介",
+                "✍️ 体感レビュー入力"
+            ]
+        )
+    else:
+        page = st.sidebar.radio(
+            "メニュー項目",
+            [
+                "🧪 リキッドマスター登録",
+                "🌐 新成分マスター登録",
+                "✨ 成分ギャラリー登録"
+            ]
+        )
+    # =========================================================================
+
+    # 💡 タイトルバナー設定
     banner_titles = {
         "📝 ワンタップ吸引記録": "ワンタップ吸引記録",
         "🧪 リキッドマスター登録": "リキッドマスター設定",
@@ -202,6 +219,7 @@ if check_password():
         "📅 履歴カレンダー": "使用履歴カレンダー",
         "📊 レビュー": "レビュー一覧 & 統計",
         "📖 成分ギャラリー": "成分一覧",
+        "✨ 成分ギャラリー登録": "ギャラリー用データの新規登録",
         "📸 リキッド紹介": "各リキッドのフォト＆レビュー",
         "✍️ 体感レビュー入力": "体感レビュー入力フォーム"
     }
@@ -361,6 +379,11 @@ if check_password():
     elif page == "📖 成分ギャラリー":
         try:
             with open("gallery.py", encoding="utf-8") as f: exec(f.read(), globals())
+        except Exception as e: st.error(f"読み込みエラー: {e}")
+
+    elif page == "✨ 成分ギャラリー登録":
+        try:
+            with open("gallery_reg.py", encoding="utf-8") as f: exec(f.read(), globals())
         except Exception as e: st.error(f"読み込みエラー: {e}")
 
     elif page == "📸 リキッド紹介":
