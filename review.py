@@ -2,9 +2,9 @@ import streamlit as st
 import pandas as pd
 import datetime
 
-# --- カラム構造の定義 ---
+# --- カラム構造の定義（新しく「画像」カラムを追加） ---
 LIQUID_MASTER_COLS = ["リキッド名", "配合詳細"]
-LOG_COLS = ["日付", "リキッド名", "パフ数", "配合詳細", "体感した効果", "体感メモ"]
+LOG_COLS = ["日付", "リキッド名", "パフ数", "配合詳細", "体感した効果", "体感メモ", "画像"]
 
 # 🎨 ご指定のカラーコードをCSSに完全反映
 st.markdown("""
@@ -47,8 +47,8 @@ button[key*="btn_clear_eff"] {
 </style>
 """, unsafe_allow_html=True)
 
-st.title("📊 リキッド紹介 & レビュー")
-st.write("3つの項目をタップするだけで、簡単にレビューを記録できます。")
+# 💡 タイトルを削除し、説明文だけにしました
+st.write("3つの項目をタップして、写真とレビューを記録しましょう。")
 
 # 💡 選択状態を管理するセッション変数
 if "selected_effects_list" not in st.session_state:
@@ -71,16 +71,28 @@ else:
     st.markdown("---")
 
     # =========================================================
+    # 📸 新機能：写真の追加（アップロード）
+    # =========================================================
+    st.subheader("📸 写真を追加（任意）")
+    uploaded_file = st.file_uploader("リキッドや体感の写真をアップロード", type=['png', 'jpg', 'jpeg'])
+    img_data = "" # 初期値は空（写真なし）
+    
+    if uploaded_file is not None:
+        import base64
+        # 画像をテキストデータ（Base64）に変換して保存できるようにする
+        img_data = base64.b64encode(uploaded_file.read()).decode()
+        st.image(uploaded_file, caption="選択された画像", width=150)
+
+    st.markdown("---")
+
+    # =========================================================
     # 項目①：サティバ / インディカ / ハイブリッド（タップで即保存）
     # =========================================================
     st.subheader("① 系統の選択（タップで即保存）")
-    # ハイブリッド追加に伴い、3列に拡張
     col_sys1, col_sys2, col_sys3, col_sys_spacer = st.columns([1.5, 1.5, 1.5, 3.5])
     
-    # 選択時に指定の色をパッと出すためのCSS（文字は見やすいように調整しています）
     st.markdown("""
     <style>
-    /* 系統がホバーされたときの色指定 */
     div[data-testid="column"] button[key*="sb_sat_btn"]:hover { background-color: #ff0000 !important; color: #ffffff !important; }
     div[data-testid="column"] button[key*="sb_ind_btn"]:hover { background-color: #00ffff !important; color: #000000 !important; }
     div[data-testid="column"] button[key*="sb_hyb_btn"]:hover { background-color: #ffff00 !important; color: #000000 !important; }
@@ -102,7 +114,8 @@ else:
             "パフ数": 0,
             "配合詳細": liq_detail,
             "体感した効果": f"系統: {selected_system}",
-            "体感メモ": ""
+            "体感メモ": "",
+            "画像": img_data # 写真を一緒に保存
         }
         if 'save_data_to_db' in globals():
             globals()['save_data_to_db']("Attraction_Logs", new_log_row, LOG_COLS)
@@ -113,7 +126,7 @@ else:
     st.markdown("---")
 
     # =========================================================
-    # 項目②：体感（複数選択）※ご指定のカラーコードを動的適用
+    # 項目②：体感（複数選択）
     # =========================================================
     st.subheader("② 体感の選択（複数選択可能）")
     st.write("👇 ボタンを押して体感をリストに追加していってください。")
@@ -121,7 +134,6 @@ else:
     # === 🎨 選択されたボタンをご指定のカラーコードに戻す処理 ===
     dynamic_css = "<style>"
     for effect_name in st.session_state.selected_effects_list:
-        # 文字が見えづらくならないよう、背景が黄色やシアンの時は黒文字、赤の時は白文字に自動調整しています
         if effect_name == "ヘッドハイ": dynamic_css += "button[key*='ef_hh'] { background-color: #ff0000 !important; color: #ffffff !important; border: 1px solid #ff0000 !important; font-weight: bold !important; }"
         elif effect_name == "ボディハイ": dynamic_css += "button[key*='ef_bh'] { background-color: #00ffff !important; color: #000000 !important; border: 1px solid #00ffff !important; font-weight: bold !important; }"
         elif effect_name == "睡眠サポート": dynamic_css += "button[key*='ef_su'] { background-color: #00ffff !important; color: #000000 !important; border: 1px solid #00ffff !important; font-weight: bold !important; }"
@@ -138,7 +150,6 @@ else:
     dynamic_css += "</style>"
     st.markdown(dynamic_css, unsafe_allow_html=True)
 
-    # 13個のボタンを5列に綺麗に配置
     b_col1, b_col2, b_col3, b_col4, b_col5 = st.columns(5)
     
     with b_col1:
@@ -217,7 +228,8 @@ else:
                     "パフ数": 0,
                     "配合詳細": liq_detail,
                     "体感した効果": f"体感: {all_effects_str}",
-                    "体感メモ": ""
+                    "体感メモ": "",
+                    "画像": img_data # 写真を一緒に保存
                 }
                 if 'save_data_to_db' in globals():
                     globals()['save_data_to_db']("Attraction_Logs", new_log_row, LOG_COLS)
@@ -256,7 +268,8 @@ else:
             "パフ数": 0,
             "配合詳細": liq_detail,
             "体感した効果": f"星評価: {selected_star}",
-            "体感メモ": ""
+            "体感メモ": "",
+            "画像": img_data # 写真を一緒に保存
         }
         if 'save_data_to_db' in globals():
             globals()['save_data_to_db']("Attraction_Logs", new_log_row, LOG_COLS)
@@ -265,4 +278,4 @@ else:
             st.rerun()
 
     st.markdown("---")
-    st.info("💡 過去のレビュー履歴は「リキッド紹介」画面で確認できます。")
+    st.info("💡 過去のレビューやアップロードした写真は「📸 リキッド紹介」画面でまとめて確認できます。")
