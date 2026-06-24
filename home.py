@@ -29,7 +29,7 @@ if not st.session_state["authenticated"]:
     password_input = st.text_input("パスワードを入力してください", type="password")
     if st.button("ログイン"):
         # ここにご自身の元のパスワードを設定してください
-        if password_input == "your_password":
+        if password_input == "0602":
             st.session_state["authenticated"] = True
             st.rerun()
         else:
