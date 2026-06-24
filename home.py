@@ -105,83 +105,8 @@ if check_password():
 
     st.markdown(f"""
         <style>
+        /* メイン画面のスタイル */
         .stApp {{ background-color: #ffffff; color: #000000; }}
         h1, h2, h3, h4, p, label {{ color: #000000 !important; font-family: 'Noto Sans JP', sans-serif; }}
         .stButton>button {{ 
-            background-color: #98FB98 !important; color: #000000 !important; font-weight: bold; border-radius: 8px; border: 1px solid #000000; width: 100%; height: 45px;
-        }}
-        [data-testid="stSidebar"] {{ background-color: #1a1a1a !important; }}
-        [data-testid="stSidebar"] .stRadio > label div p {{ color: #ffffff !important; font-weight: bold !important; }}
-        .custom-title-banner {{ {bg_css_style} padding: 40px 20px; border-radius: 12px; text-align: center; margin-bottom: 30px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); }}
-        .custom-title-banner h1 {{ color: #ffffff !important; font-size: 34px !important; font-weight: 800 !important; text-shadow: 0 0 10px #00ff00 !important; margin: 0 !important; }}
-        .custom-title-banner p {{ color: #ff00ff !important; font-size: 18px !important; font-weight: bold !important; text-shadow: 0 0 8px #ff00ff !important; margin-top: 10px !important; }}
-        .group-container {{ border: 1px solid #e2e8f0; border-radius: 10px; padding: 15px; margin-bottom: 20px; background-color: #fafafa; }}
-        </style>
-        """, unsafe_allow_html=True)
-
-    # 📌 サイドバーメニュー
-    page = st.sidebar.radio("メニューを選択", ["📝 ワンタップ吸引記録", "🧪 リキッドマスター登録", "🌐 新成分マスター登録", "📅 履歴カレンダー", "📊 成分紹介"])
-
-    # --- ✨ 共通おしゃれバナー表示処理 ---
-    banner_titles = {
-        "📝 ワンタップ吸引記録": "ワンタップ吸引記録",
-        "🧪 リキッドマスター登録": "リキッドマスター設定",
-        "🌐 新成分マスター登録": "新成分の追加登録",
-        "📅 履歴カレンダー": "使用履歴カレンダー",
-        "📊 成分紹介": "リキッド紹介 & レビュー"
-    }
-    current_title = banner_titles.get(page, "Cannatics")
-    st.markdown(f"""<div class="custom-title-banner"><h1>🌿 Cannatics</h1><p>{current_title}</p></div>""", unsafe_allow_html=True)
-
-    # -------------------------------------------------------------------------
-    # 各ページの内容
-    # -------------------------------------------------------------------------
-    LIQUID_MASTER_COLS = ["リキッド名", "配合詳細"]
-    LOG_COLS = ["日付", "リキッド名", "パフ数", "配合詳細", "体感した効果", "体感メモ"]
-
-    if page == "📝 ワンタップ吸引記録":
-        df_master = load_data_from_db("Liquid_Master", LIQUID_MASTER_COLS)
-        if df_master.empty:
-            st.warning("⚠️ まだリキッドが登録されていません。")
-        else:
-            selected_liq = st.selectbox("🚬 リキッドを選択", df_master["リキッド名"].tolist())
-            liq_detail = df_master[df_master["リキッド名"] == selected_liq]["配合詳細"].values[0]
-            st.caption(f"配合: {liq_detail}")
-            puffs = st.slider("パフ数", 1, 15, 3)
-            log_date = st.date_input("日付", datetime.date.today())
-            if st.button("📊 ワンタップで記録完了！"):
-                new_log_row = {"日付": log_date.strftime("%Y-%m-%d"), "リキッド名": selected_liq, "パフ数": puffs, "配合詳細": liq_detail, "体感した効果": "", "体感メモ": ""}
-                if save_data_to_db("Attraction_Logs", new_log_row, LOG_COLS):
-                    st.success(f"🎉 {selected_liq} を記録しました！")
-
-    elif page == "🧪 リキッドマスター登録":
-        if "m_g1" not in st.session_state: st.session_state.m_g1 = 1
-        new_liq_name = st.text_input("📦 新しいリキッド名")
-        st.markdown('<div class="group-container"><b>配合を入力</b>', unsafe_allow_html=True)
-        # 簡易的な入力例 (home.py側のロジック維持)
-        c1, c2 = st.columns([2, 1])
-        with c1: name = st.selectbox("成分", g1_presets + g2_presets)
-        with c2: pct = st.number_input("比率(%)", 0, 100, 50)
-        st.markdown('</div>', unsafe_allow_html=True)
-        if st.button("💾 マスターに登録"):
-            if new_liq_name:
-                save_data_to_db("Liquid_Master", {"リキッド名": new_liq_name, "配合詳細": f"{name}:{pct}%"}, LIQUID_MASTER_COLS)
-                st.success("登録しました！")
-
-    elif page == "📊 成分紹介":
-        # 💡 review.pyを実行
-        try:
-            with open("review.py", encoding="utf-8") as f:
-                # review.py内の st.titleなどは消した状態で実行されるのが望ましい
-                exec(f.read(), globals())
-        except Exception as e: st.error(f"読み込みエラー: {e}")
-
-    # 残りのメニュー
-    elif page == "🌐 新成分マスター登録":
-        try:
-            with open("seibunn.py", encoding="utf-8") as f: exec(f.read(), globals())
-        except Exception: st.write("ファイルを確認してください。")
-    elif page == "📅 履歴カレンダー":
-        try:
-            with open("calendar.py", encoding="utf-8") as f: exec(f.read(), globals())
-        except Exception: st.write("ファイルを確認してください。")
+            background-color: #98FB9
