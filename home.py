@@ -41,7 +41,6 @@ if check_password():
         if not HAS_GSPREAD:
             return None
         try:
-            # StreamlitのSecrets（環境変数）またはローカルのjsonファイルから認証
             if "gcp_service_account" in st.secrets:
                 creds_dict = dict(st.secrets["gcp_service_account"])
                 scopes = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
@@ -55,26 +54,23 @@ if check_password():
             st.sidebar.error(f"Google接続エラー: {e}")
         return None
 
-    # --- 💾 データの読み込み・保存処理（スプレッドシートまたはローカルCSVでの代替） ---
+    # --- 💾 データの読み込み・保存処理 ---
     def load_data_from_db(sheet_name, default_cols):
         client = get_spreadsheet_client()
         if client:
             try:
-                # 「Cannatics_Database」という名前のスプレッドシートを開く
                 sh = client.open("Cannatics_Database")
                 try:
                     worksheet = sh.worksheet(sheet_name)
                     df = pd.DataFrame(worksheet.get_all_records())
                     return df if not df.empty else pd.DataFrame(columns=default_cols)
                 except gspread.exceptions.WorksheetNotFound:
-                    # シートがなければ自動作成
                     worksheet = sh.add_worksheet(title=sheet_name, rows="100", cols=str(len(default_cols)))
                     worksheet.append_row(default_cols)
                     return pd.DataFrame(columns=default_cols)
             except Exception as e:
-                st.sidebar.warning(f"スプレッドシート読み込み失敗（CSVで代替します）: {e}")
+                st.sidebar.warning(f"スプレッドシート読み込み失敗: {e}")
         
-        # 予備：ローカルファイル保存
         file_name = f"{sheet_name}.csv"
         if os.path.exists(file_name):
             return pd.read_csv(file_name)
@@ -87,14 +83,12 @@ if check_password():
             try:
                 sh = client.open("Cannatics_Database")
                 worksheet = sh.worksheet(sheet_name)
-                # 辞書の並び順を列名に合わせる
                 row_to_append = [new_row_dict.get(col, "") for col in default_cols]
                 worksheet.append_row(row_to_append)
                 saved_via_gs = True
             except Exception as e:
                 st.sidebar.error(f"スプレッドシート保存失敗: {e}")
         
-        # 常にローカルCSVにもバックアップ保存
         file_name = f"{sheet_name}.csv"
         df = load_data_from_db(sheet_name, default_cols)
         df = pd.concat([df, pd.DataFrame([new_row_dict])], ignore_index=True)
@@ -159,42 +153,83 @@ if check_password():
         </style>
         """, unsafe_allow_html=True)
 
-    # データベースの列定義
+    # 画面のカウント用セッション管理
+    if "master_g1_rows" not in st.session_state: st.session_state.master_g1_rows = 1
+    if "master_g2_rows" not in st.session_state: st.session_state.master_g2_rows = 1
+    if "master_g3_rows" not in st.session_state: st.session_state.master_g3_rows = 1
+
     LIQUID_MASTER_COLS = ["リキッド名", "配合詳細"]
     LOG_COLS = ["日付", "リキッド名", "パフ数", "配合詳細", "体感した効果", "体感メモ"]
 
-    # サイドバーメニュー
     page = st.sidebar.radio("メニューを選択", ["📝 ワンタップ吸引記録", "🧪 リキッドマスター登録", "🌐 新成分マスター登録", "📅 履歴カレンダー", "📊 成分紹介"])
 
     # -------------------------------------------------------------------------
-    # 🧪 新機能：リキッドマスター登録（事前にお気に入りの配合と名前を決めておく）
+    # 🧪 リキッドマスター登録（「➕枠を追加」ボタン復活版）
     # -------------------------------------------------------------------------
     if page == "🧪 リキッドマスター登録":
         st.title("🧪 リキッド名と配合の事前登録")
-        st.write("毎回成分を入力する手間を省くため、ここにリキッドの名前と配合比率を登録しておきましょう！")
+        st.write("ボタンを押して成分枠を増やし、お気に入りのリキッド配合を保存できます。")
         
         new_liquid_name = st.text_input("📦 登録するリキッド名（例: 特製ミックスA, プレミアムCRDP）")
         
-        st.markdown("👇 このリキッドに含まれる成分と比率を入力してください")
-        c1, c2, c3 = st.columns(3)
-        with c1:
-            g1_sel = st.multiselect("主要活性成分", g1_presets)
-            g1_p = {name: st.number_input(f"{name} 比率(%)", 0.0, 100.0, step=5.0, key=f"m_g1_{name}") for name in g1_sel}
-        with c2:
-            g2_sel = st.multiselect("ベース成分", g2_presets)
-            g2_p = {name: st.number_input(f"{name} 比率(%)", 0.0, 100.0, step=5.0, key=f"m_g2_{name}") for name in g2_sel}
-        with c3:
-            g3_sel = st.multiselect("テルペン", g3_presets)
-            g3_p = {name: st.number_input(f"{name} 比率(%)", 0.0, 100.0, step=1.0, key=f"m_g3_{name}") for name in g3_sel}
+        all_g1 = g1_presets
+        all_g2 = g2_presets
+        all_g3 = g3_presets
+
+        liquid_components = {}
+
+        # --- 1. 主要精神活性成分 ---
+        st.markdown('<div class="group-container"><div class="group-title">🔥 1. 主要精神活性成分（半合成等）</div>', unsafe_allow_html=True)
+        c_add1, c_del1 = st.columns(2)
+        with c_add1:
+            if st.button("➕ 枠を追加", key="m_add_g1"): st.session_state.master_g1_rows += 1; st.rerun()
+        with c_del1:
+            if st.button("➖ 枠を削除", key="m_del_g1"):
+                if st.session_state.master_g1_rows > 0: st.session_state.master_g1_rows -= 1; st.rerun()
+        for i in range(st.session_state.master_g1_rows):
+            c1, c2 = st.columns([2, 1])
+            with c1: name = st.selectbox(f"活性成分 {i+1}", all_g1, key=f"m_g1_n_{i}")
+            with c2: pct = st.number_input(f"比率 {i+1} (%)", min_value=0.0, max_value=100.0, value=0.0, step=5.0, key=f"m_g1_p_{i}")
+            if pct > 0: liquid_components[name] = pct
+        st.markdown('</div>', unsafe_allow_html=True)
+
+        # --- 2. ベース成分 ---
+        st.markdown('<div class="group-container"><div class="group-title">🌿 2. ベース成分（天然カンナビノイド等）</div>', unsafe_allow_html=True)
+        c_add2, c_del2 = st.columns(2)
+        with c_add2:
+            if st.button("➕ 枠を追加", key="m_add_g2"): st.session_state.master_g2_rows += 1; st.rerun()
+        with c_del2:
+            if st.button("➖ 枠を削除", key="m_del_g2"):
+                if st.session_state.master_g2_rows > 0: st.session_state.master_g2_rows -= 1; st.rerun()
+        for i in range(st.session_state.master_g2_rows):
+            c1, c2 = st.columns([2, 1])
+            with c1: name = st.selectbox(f"ベース成分 {i+1}", all_g2, key=f"m_g2_n_{i}")
+            with c2: pct = st.number_input(f"比率 {i+1} (%)", min_value=0.0, max_value=100.0, value=0.0, step=5.0, key=f"m_g2_p_{i}")
+            if pct > 0: liquid_components[name] = pct
+        st.markdown('</div>', unsafe_allow_html=True)
+
+        # --- 3. テルペン ---
+        st.markdown('<div class="group-container"><div class="group-title">🧪 3. テルペン・その他添加剤</div>', unsafe_allow_html=True)
+        c_add3, c_del3 = st.columns(2)
+        with c_add3:
+            if st.button("➕ 枠を追加", key="m_add_g3"): st.session_state.master_g3_rows += 1; st.rerun()
+        with c_del3:
+            if st.button("➖ 枠を削除", key="m_del_g3"):
+                if st.session_state.master_g3_rows > 0: st.session_state.master_g3_rows -= 1; st.rerun()
+        for i in range(st.session_state.master_g3_rows):
+            c1, c2 = st.columns([2, 1])
+            with c1: name = st.selectbox(f"添加成分 {i+1}", all_g3, key=f"m_g3_n_{i}")
+            with c2: pct = st.number_input(f"比率 {i+1} (%)", min_value=0.0, max_value=100.0, value=0.0, step=1.0, key=f"m_g3_p_{i}")
+            if pct > 0: liquid_components[name] = pct
+        st.markdown('</div>', unsafe_allow_html=True)
             
         if st.button("💾 このリキッドをマスターに登録"):
             if not new_liquid_name:
                 st.error("リキッド名を入力してください。")
+            elif not liquid_components:
+                st.error("比率が1%以上の成分を最低1つ入力してください。")
             else:
-                # 配合データを1つの文字列にまとめる (例: CRDP:40%/CBD:30%)
-                all_p = {**g1_p, **g2_p, **g3_p}
-                details_str = " / ".join([f"{k}:{v}%" for k, v in all_p.items() if v > 0])
-                
+                details_str = " / ".join([f"{k}:{v}%" for k, v in liquid_components.items()])
                 new_master_row = {"リキッド名": new_liquid_name, "配合詳細": details_str}
                 success = save_data_to_db("Liquid_Master", new_master_row, LIQUID_MASTER_COLS)
                 
@@ -205,71 +240,4 @@ if check_password():
 
         st.markdown("---")
         st.subheader("📋 現在登録されているリキッド一覧")
-        df_master = load_data_from_db("Liquid_Master", LIQUID_MASTER_COLS)
-        st.dataframe(df_master, use_container_width=True)
-
-    # -------------------------------------------------------------------------
-    # 📝 修正・強化機能：ワンタップ吸引記録（名前を選ぶだけで一発保存）
-    # -------------------------------------------------------------------------
-    elif page == "📝 ワンタップ吸引記録":
-        st.markdown("""<div class="custom-title-banner"><h1>🌿 Cannatics (カンナティクス)</h1><p>ワンタップ吸引記録 & ログ</p></div>""", unsafe_allow_html=True)
-        
-        df_master = load_data_from_db("Liquid_Master", LIQUID_MASTER_COLS)
-        
-        if df_master.empty:
-            st.warning("⚠️ まだリキッドが登録されていません。先に「🧪 リキッドマスター登録」から登録してください。")
-        else:
-            st.subheader("⚡ リキッドを選んで記録")
-            
-            # 1. 登録されたリキッド名を選ぶだけで中身が自動決定！
-            selected_liq = st.selectbox("🚬 吸うリキッドを選択してください", df_master["リキッド名"].tolist())
-            liq_detail = df_master[df_master["リキッド名"] == selected_liq]["配合詳細"].values[0]
-            st.info(f"📋 選択中の配合: {liq_detail}")
-            
-            # 2. パフ数と日付を選ぶ
-            puffs = st.slider("今回の摂取量 (パフ数)", 1, 10, 3)
-            log_date = st.date_input("記録する日付", datetime.date.today())
-            
-            st.markdown("---")
-            st.subheader("🟢 体感レビュー（あとからスプレッドシートで書く場合は空欄でOK！）")
-            selected_effects = st.multiselect("体感した効果・副反応", extracted_effects)
-            user_memo = st.text_area("体感メモ（自由記述）")
-            
-            if st.button("📊 スプレッドシートへ保存"):
-                date_str = log_date.strftime("%Y-%m-%d")
-                effects_str = ", ".join(selected_effects)
-                
-                new_log_row = {
-                    "日付": date_str,
-                    "リキッド名": selected_liq,
-                    "パフ数": puffs,
-                    "配合詳細": liq_detail,
-                    "体感した効果": effects_str,
-                    "体感メモ": user_memo
-                }
-                
-                success = save_data_to_db("Attraction_Logs", new_log_row, LOG_COLS)
-                if success:
-                    st.success(f"🎉 {date_str} のログをGoogleスプレッドシートへ完全に保存しました！")
-                else:
-                    st.success(f"🎉 ログを端末内にローカル保存しました。")
-
-    # --- その他の既存ページ（エラー回避のため残し） ---
-    elif page == "🌐 新成分マスター登録":
-        try:
-            with open("seibunn.py", encoding="utf-8") as f: exec(f.read(), globals())
-        except Exception: st.title("🌐 新成分マスター登録"); st.write("ファイルを確認してください。")
-    elif page == "📅 履歴カレンダー":
-        try:
-            with open("calendar.py", encoding="utf-8") as f: exec(f.read(), globals())
-        except Exception: st.title("📅 履歴カレンダー"); st.write("ファイルを確認してください。")
-    elif page == "📊 成分紹介":
-        st.title("📊 カンナティクス 成分紹介")
-        file_path = "data.xlsx"
-        if os.path.exists(file_path):
-            try:
-                excel_file = pd.ExcelFile(file_path)
-                selected_sheet = st.selectbox("シートを選択", excel_file.sheet_names)
-                df = pd.read_excel(file_path, sheet_name=selected_sheet, header=2).dropna(how='all')
-                st.dataframe(df, use_container_width=True)
-            except Exception as e: st.error(f"エラー: {e}")
+        df_master = load_data_from
