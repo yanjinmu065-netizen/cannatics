@@ -171,3 +171,40 @@ if check_password():
         if df_master.empty:
             st.warning("⚠️ まだリキッドが登録されていません。")
         else:
+            selected_liq = st.selectbox("🚬 リキッドを選択", df_master["リキッド名"].tolist())
+            liq_detail = df_master[df_master["リキッド名"] == selected_liq]["配合詳細"].values[0]
+            st.caption(f"配合: {liq_detail}")
+            puffs = st.slider("パフ数", 1, 15, 3)
+            log_date = st.date_input("日付", datetime.date.today())
+            if st.button("📊 ワンタップで記録完了！"):
+                new_log_row = {"日付": log_date.strftime("%Y-%m-%d"), "リキッド名": selected_liq, "パフ数": puffs, "配合詳細": liq_detail, "体感した効果": "", "体感メモ": ""}
+                if save_data_to_db("Attraction_Logs", new_log_row, LOG_COLS):
+                    st.success(f"🎉 {selected_liq} を記録しました！")
+
+    elif page == "🧪 リキッドマスター登録":
+        new_liq_name = st.text_input("📦 新しいリキッド名")
+        st.markdown('<div class="group-container"><b>配合を入力</b>', unsafe_allow_html=True)
+        c1, c2 = st.columns([2, 1])
+        with c1: name = st.selectbox("成分", g1_presets + g2_presets)
+        with c2: pct = st.number_input("比率(%)", 0, 100, 50)
+        st.markdown('</div>', unsafe_allow_html=True)
+        if st.button("💾 マスターに登録"):
+            if new_liq_name:
+                save_data_to_db("Liquid_Master", {"リキッド名": new_liq_name, "配合詳細": f"{name}:{pct}%"}, LIQUID_MASTER_COLS)
+                st.success("登録しました！")
+
+    elif page == "📊 成分紹介":
+        try:
+            with open("review.py", encoding="utf-8") as f:
+                exec(f.read(), globals())
+        except Exception as e: st.error(f"読み込みエラー: {e}")
+
+    elif page == "🌐 新成分マスター登録":
+        try:
+            with open("seibunn.py", encoding="utf-8") as f: exec(f.read(), globals())
+        except Exception: st.warning("⚠️ 新成分マスターの連携ファイルを確認してください。")
+        
+    elif page == "📅 履歴カレンダー":
+        try:
+            with open("calendar.py", encoding="utf-8") as f: exec(f.read(), globals())
+        except Exception: st.warning("⚠️ 履歴カレンダーの連携ファイルを確認してください。")
