@@ -35,7 +35,7 @@ def check_password():
 
 if check_password():
 
-    # 💡 エラーの原因だった「外部ファイルが欲しがるセッション変数」をここで自動初期化します
+    # 💡 セッション変数の初期化（m_g1 は主要成分の枠数になります）
     if "custom_components" not in st.session_state:
         st.session_state["custom_components"] = []
     if "m_g1" not in st.session_state: st.session_state.m_g1 = 1
@@ -89,8 +89,9 @@ if check_password():
     @st.cache_data
     def load_excel_presets():
         try:
-            df_cannabinoid = pd.read_excel("data.xlsx", sheet_name="カンナビノイド", header=2)
+            # エクセル上の「半合成」シートから読み込んだものを、これからは「主要成分」として扱います
             df_synthetic = pd.read_excel("data.xlsx", sheet_name="半合成", header=2)
+            df_cannabinoid = pd.read_excel("data.xlsx", sheet_name="カンナビノイド", header=2)
             df_terpene = pd.read_excel("data.xlsx", sheet_name="テルペン", header=2)
             g1 = [str(r["成分名"]) for _, r in df_synthetic.dropna(subset=["成分名"]).iterrows()]
             g2 = [str(r["成分名"]) for _, r in df_cannabinoid.dropna(subset=["成分名"]).iterrows()]
@@ -98,7 +99,26 @@ if check_password():
             return g1, g2, g3
         except Exception: return ["CRDP", "THA"], ["CBD", "CBG"], ["ミルセン", "リモネン"]
 
-    g1_presets, g2_presets, g3_presets = load_excel_presets()
+    # 💡 選択肢リスト（プリセット）をセッション内で一元管理
+    if 'g1_presets' not in st.session_state or 'g2_presets' not in st.session_state or 'g3_presets' not in st.session_state:
+        g1_init, g2_init, g3_init = load_excel_presets()
+        st.session_state['g1_presets'] = g1_init
+        st.session_state['g2_presets'] = g2_init
+        st.session_state['g3_presets'] = g3_init
+
+    # 💡 seibunn.py から「主要成分」として追加されたデータをドロップダウンに完全同期
+    if "custom_components" in st.session_state:
+        for comp in st.session_state.custom_components:
+            if comp['group'] == '主要成分' and comp['name'] not in st.session_state['g1_presets']:
+                st.session_state['g1_presets'].append(comp['name'])
+            elif comp['group'] == 'ベース' and comp['name'] not in st.session_state['g2_presets']:
+                st.session_state['g2_presets'].append(comp['name'])
+            elif comp['group'] == 'テルペン' and comp['name'] not in st.session_state['g3_presets']:
+                st.session_state['g3_presets'].append(comp['name'])
+
+    g1_presets = st.session_state['g1_presets']
+    g2_presets = st.session_state['g2_presets']
+    g3_presets = st.session_state['g3_presets']
 
     # --- 🎨 背景画像処理 ---
     bg_style_raw = "linear-gradient(135deg, #130021 0%, #3a0066 100%)"
@@ -109,7 +129,7 @@ if check_password():
             bg_style_raw = f"url(data:image/png;base64,{encoded}) center/cover"
         except Exception: pass
 
-    # 安全なCSS読み込み処理
+    # CSSスタイル
     css_code = """
         <style>
         .stApp { background-color: #ffffff; color: #000000; }
@@ -118,47 +138,28 @@ if check_password():
             background-color: #98FB98 !important; color: #000000 !important; font-weight: bold; border-radius: 8px; border: 1px solid #000000; width: 100%; height: 45px;
         }
         .group-container { border: 1px solid #e2e8f0; border-radius: 10px; padding: 15px; margin-bottom: 20px; background-color: #fafafa; }
-        
-        /* 統一バナーデザイン */
         .custom-title-banner { 
             background: BACKGROUND_PLACEHOLDER;
             padding: 40px 20px; border-radius: 12px; text-align: center; margin-bottom: 30px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); 
         }
         .custom-title-banner h1 { color: #ffffff !important; font-size: 34px !important; font-weight: 800 !important; text-shadow: 0 0 10px #00ff00 !important; margin: 0 !important; }
         .custom-title-banner p { color: #ff00ff !important; font-size: 18px !important; font-weight: bold !important; text-shadow: 0 0 8px #ff00ff !important; margin-top: 10px !important; }
-        
-        /* サイドバーおしゃれ化（白文字徹底統一デザイン） */
-        [data-testid="stSidebar"] { 
-            background: BACKGROUND_PLACEHOLDER;
-            border-right: 2px solid #ff00ff;
-        }
-        [data-testid="stSidebar"] .stRadio > label div p { 
-            color: #ffffff !important; font-weight: 900 !important; font-size: 18px !important; text-shadow: 0 0 5px #00ff00 !important; margin-bottom: 10px;
-        }
+        [data-testid="stSidebar"] { background: BACKGROUND_PLACEHOLDER; border-right: 2px solid #ff00ff; }
+        [data-testid="stSidebar"] .stRadio > label div p { color: #ffffff !important; font-weight: 900 !important; font-size: 18px !important; text-shadow: 0 0 5px #00ff00 !important; margin-bottom: 10px; }
         [data-testid="stSidebar"] .stRadio div[role="radiogroup"] label span p,
         [data-testid="stSidebar"] .stRadio div[role="radiogroup"] label div p,
-        [data-testid="stSidebar"] .stRadio div[role="radiogroup"] label { 
-            color: #ffffff !important; font-weight: bold !important; font-size: 14px !important;
-        }
-        [data-testid="stSidebar"] div[data-baseweb="radio"] div { 
-            border-color: #00ff00 !important; background-color: rgba(0, 0, 0, 0.4) !important;
-        }
+        [data-testid="stSidebar"] .stRadio div[role="radiogroup"] label { color: #ffffff !important; font-weight: bold !important; font-size: 14px !important; }
+        [data-testid="stSidebar"] div[data-baseweb="radio"] div { border-color: #00ff00 !important; background-color: rgba(0, 0, 0, 0.4) !important; }
         [data-testid="stSidebar"] div[data-baseweb="radio"][aria-checked="true"] span p,
-        [data-testid="stSidebar"] div[data-baseweb="radio"][aria-checked="true"] div p {
-            color: #ff00ff !important; text-shadow: 0 0 8px #ff00ff !important;
-        }
-        [data-testid="stSidebar"] div[data-baseweb="radio"][aria-checked="true"] div div {
-            background-color: #ff00ff !important;
-        }
+        [data-testid="stSidebar"] div[data-baseweb="radio"][aria-checked="true"] div p { color: #ff00ff !important; text-shadow: 0 0 8px #ff00ff !important; }
+        [data-testid="stSidebar"] div[data-baseweb="radio"][aria-checked="true"] div div { background-color: #ff00ff !important; }
         </style>
     """.replace("BACKGROUND_PLACEHOLDER", bg_style_raw)
 
     st.markdown(css_code, unsafe_allow_html=True)
 
-    # 📌 サイドバーメニュー
     page = st.sidebar.radio("メニューを選択", ["📝 ワンタップ吸引記録", "🧪 リキッドマスター登録", "🌐 新成分マスター登録", "📅 履歴カレンダー", "📊 成分紹介"])
 
-    # --- ✨ 共通おしゃれバナー表示 ---
     banner_titles = {
         "📝 ワンタップ吸引記録": "ワンタップ吸引記録",
         "🧪 リキッドマスター登録": "リキッドマスター設定",
@@ -169,9 +170,6 @@ if check_password():
     current_title = banner_titles.get(page, "Cannatics")
     st.markdown(f"""<div class="custom-title-banner"><h1>🌿 Cannatics</h1><p>{current_title}</p></div>""", unsafe_allow_html=True)
 
-    # -------------------------------------------------------------------------
-    # 各ページの内容
-    # -------------------------------------------------------------------------
     LIQUID_MASTER_COLS = ["リキッド名", "配合詳細"]
     LOG_COLS = ["日付", "リキッド名", "パフ数", "配合詳細", "体感した効果", "体感メモ"]
 
@@ -191,26 +189,26 @@ if check_password():
                     st.success(f"🎉 {selected_liq} を記録しました！")
 
     elif page == "🧪 リキッドマスター登録":
-        new_liq_name = st.text_input("📦 新しいリキッド名")
+        new_liq_name = st.text_input("📦 新しいリキッド名", key="master_target_liquid_name")
         st.subheader("🧪 配合割合の入力")
         
         g1_total = 0.0
         g2_total = 0.0
         g3_total = 0.0
         
-        # --- ➕ 半合成成分エリア ---
+        # --- ➕ 主要成分エリア ---
         g1_data = []
         for i in range(st.session_state.m_g1):
             c1, c2 = st.columns([2, 1])
-            with c1: name = st.selectbox(f"半合成 {i+1}", g1_presets, key=f"g1_n_{i}")
+            with c1: name = st.selectbox(f"主要成分 {i+1}", g1_presets, key=f"g1_n_{i}")
             with c2: pct = st.number_input(f"比率%##{i}", min_value=0.0, max_value=100.0, value=0.0, step=0.1, format="%.1f", key=f"g1_p_{i}")
             g1_data.append((name, pct))
             g1_total += pct
-        if st.button("➕ 半合成成分を追加"):
+        if st.button("➕ 主要成分を追加", key="btn_add_g1"):
             st.session_state.m_g1 += 1
             st.rerun()
             
-        # --- ➕ カンナビノイド（天然）成分エリア ---
+        # --- ➕ 天然成分エリア ---
         g2_data = []
         for i in range(st.session_state.m_g2):
             c1, c2 = st.columns([2, 1])
@@ -218,7 +216,7 @@ if check_password():
             with c2: pct = st.number_input(f"比率% (天然)##{i}", min_value=0.0, max_value=100.0, value=0.0, step=0.1, format="%.1f", key=f"g2_p_{i}")
             g2_data.append((name, pct))
             g2_total += pct
-        if st.button("➕ カンナビノイド成分を追加"):
+        if st.button("➕ カンナビノイド成分を追加", key="btn_add_g2"):
             st.session_state.m_g2 += 1
             st.rerun()
 
@@ -230,17 +228,16 @@ if check_password():
             with c2: pct = st.number_input(f"比率% (テルペン)##{i}", min_value=0.0, max_value=100.0, value=0.0, step=0.1, format="%.1f", key=f"g3_p_{i}")
             g3_data.append((name, pct))
             g3_total += pct
-        if st.button("➕ テルペン成分を追加"):
+        if st.button("➕ テルペン成分を追加", key="btn_add_g3"):
             st.session_state.m_g3 += 1
             st.rerun()
 
-        # --- 📊 リアルタイムパーセンテージメーター表示 ---
+        # --- 📊 リアルタイムメーター ---
         total_all = g1_total + g2_total + g3_total
-        
         st.markdown("---")
         st.markdown("### 📊 現在の配合比率（リアルタイム計算）")
         col_m1, col_m2, col_m3, col_m4 = st.columns(4)
-        col_m1.metric("🧬 半合成 合計", f"{g1_total:.1f} %")
+        col_m1.metric("🧬 主要成分 合計", f"{g1_total:.1f} %")
         col_m2.metric("🌿 天然成分 合計", f"{g2_total:.1f} %")
         col_m3.metric("🍋 テルペン 合計", f"{g3_total:.1f} %")
         
@@ -250,16 +247,15 @@ if check_password():
             col_m4.metric("🏆 総合合計", f"{total_all:.1f} %")
         st.markdown("---")
 
-        if st.button("💾 マスターに登録"):
+        if st.button("💾 マスターに登録", key="btn_save_master"):
             if not new_liq_name:
                 st.error("リキッド名を入力してください")
             else:
                 parts = []
                 for n, p in g1_data + g2_data + g3_data:
-                    if p > 0: 
+                    if p > 0.0: 
                         p_str = f"{int(p)}" if p.is_integer() else f"{p:.1f}"
                         parts.append(f"{n}:{p_str}%")
-                
                 if not parts:
                     st.error("比率が0.1%以上の成分を1つ以上入力してください")
                 else:
@@ -269,18 +265,15 @@ if check_password():
 
     elif page == "📊 成分紹介":
         try:
-            with open("review.py", encoding="utf-8") as f:
-                exec(f.read(), globals())
+            with open("review.py", encoding="utf-8") as f: exec(f.read(), globals())
         except Exception as e: st.error(f"読み込みエラー: {e}")
 
     elif page == "🌐 新成分マスター登録":
         try:
-            with open("seibunn.py", encoding="utf-8") as f: 
-                exec(f.read(), globals())
+            with open("seibunn.py", encoding="utf-8") as f: exec(f.read(), globals())
         except Exception as e: st.error(f"⚠️ 新成分マスターの読み込みに失敗しました: {e}")
         
     elif page == "📅 履歴カレンダー":
         try:
-            with open("calendar.py", encoding="utf-8") as f: 
-                exec(f.read(), globals())
+            with open("calendar.py", encoding="utf-8") as f: exec(f.read(), globals())
         except Exception as e: st.error(f"⚠️ 履歴カレンダーの読み込みに失敗しました: {e}")
