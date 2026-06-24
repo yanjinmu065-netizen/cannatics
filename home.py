@@ -153,34 +153,76 @@ if check_password():
 
     css_code = """
         <style>
+        /* 全体設定 */
         .stApp { background-color: #ffffff; color: #000000; }
         h1, h2, h3, h4, p, label { color: #000000 !important; font-family: 'Noto Sans JP', sans-serif; }
         .stButton>button { 
             background-color: #98FB98 !important; color: #000000 !important; font-weight: bold; border-radius: 8px; border: 1px solid #000000; width: 100%; height: 45px;
         }
         .group-container { border: 1px solid #e2e8f0; border-radius: 10px; padding: 15px; margin-bottom: 20px; background-color: #fafafa; }
+        
+        /* メインバナー設定 */
         .custom-title-banner { background: BACKGROUND_PLACEHOLDER; padding: 40px 20px; border-radius: 12px; text-align: center; margin-bottom: 30px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); }
         .custom-title-banner h1 { color: #ffffff !important; font-size: 34px !important; font-weight: 800 !important; text-shadow: 0 0 10px #00ff00 !important; margin: 0 !important; }
         .custom-title-banner p { color: #ff00ff !important; font-size: 18px !important; font-weight: bold !important; text-shadow: 0 0 8px #ff00ff !important; margin-top: 10px !important; }
+        
+        /* ------------------------------------------------------------
+           🎨 サイドバーのネオン文字装飾 (白文字 + ネオン発光)
+        ------------------------------------------------------------ */
         [data-testid="stSidebar"] { background: BACKGROUND_PLACEHOLDER; border-right: 2px solid #ff00ff; }
         
-        /* セレクトボックスのラベル文字を白く太くする */
-        [data-testid="stSidebar"] label { color: #ffffff !important; font-weight: 900 !important; font-size: 16px !important; text-shadow: 0 0 5px #00ff00 !important; }
+        /* ジャンルヘッダー等のテキスト */
+        [data-testid="stSidebar"] h3 { 
+            color: #ffffff !important; 
+            font-weight: 900 !important; 
+            text-shadow: 0 0 5px #00ff00, 0 0 10px #00ff00 !important; 
+        }
         
-        [data-testid="stSidebar"] .stRadio > label div p { color: #ffffff !important; font-weight: 900 !important; font-size: 18px !important; text-shadow: 0 0 5px #00ff00 !important; margin-bottom: 10px; }
+        /* セレクトボックスのラベル、プルダウン内の文字、ラジオボタンのヘッダー */
+        [data-testid="stSidebar"] label,
+        [data-testid="stSidebar"] .stRadio > label div p { 
+            color: #ffffff !important; 
+            font-weight: 900 !important; 
+            font-size: 16px !important; 
+            text-shadow: 0 0 5px #00ff00, 0 0 10px #00ff00 !important; 
+        }
+        
+        /* 通常（未選択）のメニュー項目テキスト */
         [data-testid="stSidebar"] .stRadio div[role="radiogroup"] label span p,
         [data-testid="stSidebar"] .stRadio div[role="radiogroup"] label div p,
-        [data-testid="stSidebar"] .stRadio div[role="radiogroup"] label { color: #ffffff !important; font-weight: bold !important; font-size: 14px !important; }
-        [data-testid="stSidebar"] div[data-baseweb="radio"] div { border-color: #00ff00 !important; background-color: rgba(0, 0, 0, 0.4) !important; }
+        [data-testid="stSidebar"] .stRadio div[role="radiogroup"] label { 
+            color: #ffffff !important; 
+            font-weight: bold !important; 
+            font-size: 14px !important; 
+            text-shadow: 0 0 3px #00ff00, 0 0 6px #00ff00 !important;
+        }
+        
+        /* ラジオボタンの丸枠（未選択） */
+        [data-testid="stSidebar"] div[data-baseweb="radio"] div { 
+            border-color: #00ff00 !important; 
+            background-color: rgba(0, 0, 0, 0.5) !important; 
+            box-shadow: 0 0 5px #00ff00 !important;
+        }
+        
+        /* 🔥 選択中のメニュー項目テキスト (白ベース＋マゼンタピンクネオン) */
         [data-testid="stSidebar"] div[data-baseweb="radio"][aria-checked="true"] span p,
-        [data-testid="stSidebar"] div[data-baseweb="radio"][aria-checked="true"] div p { color: #ff00ff !important; text-shadow: 0 0 8px #ff00ff !important; }
-        [data-testid="stSidebar"] div[data-baseweb="radio"][aria-checked="true"] div div { background-color: #ff00ff !important; }
+        [data-testid="stSidebar"] div[data-baseweb="radio"][aria-checked="true"] div p { 
+            color: #ffffff !important; 
+            font-weight: 900 !important;
+            text-shadow: 0 0 5px #ff00ff, 0 0 10px #ff00ff, 0 0 15px #ff00ff !important; 
+        }
+        
+        /* ラジオボタンの選択時の中心丸マーク */
+        [data-testid="stSidebar"] div[data-baseweb="radio"][aria-checked="true"] div div { 
+            background-color: #ff00ff !important; 
+            box-shadow: 0 0 8px #ff00ff !important;
+        }
         </style>
     """.replace("BACKGROUND_PLACEHOLDER", bg_style_raw)
 
     st.markdown(css_code, unsafe_allow_html=True)
 
-    # ==================== 🛠️ サイドメニューのジャンル分け化 ====================
+    # ==================== 🛠️ サイドメニューのジャンル分け ====================
     st.sidebar.markdown("### 📂 ジャンル選択")
     genre = st.sidebar.selectbox(
         "表示するメニューの系統",
