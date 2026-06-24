@@ -78,7 +78,6 @@ if check_password():
                 try:
                     worksheet = sh.worksheet(sheet_name)
                 except gspread.exceptions.WorksheetNotFound:
-                    # シートが無ければ自動で作る
                     worksheet = sh.add_worksheet(title=sheet_name, rows="100", cols="10")
                 worksheet.clear()
                 worksheet.append_row(default_cols)
@@ -130,7 +129,7 @@ if check_password():
         st.session_state['g2_presets'] = g2_init
         st.session_state['g3_presets'] = g3_init
         
-        # 💡 アプリ起動時に、スプレッドシートに永久保存されている追加成分を自動で読み込んで合流させる
+        # 💡 アプリ起動時に追加成分を自動ロード
         df_saved_comps = load_data_from_db("Components_Master", COMP_MASTER_COLS)
         if not df_saved_comps.empty:
             for _, r in df_saved_comps.iterrows():
@@ -167,27 +166,24 @@ if check_password():
         .custom-title-banner h1 { color: #ffffff !important; font-size: 34px !important; font-weight: 800 !important; text-shadow: 0 0 10px #00ff00 !important; margin: 0 !important; }
         .custom-title-banner p { color: #ff00ff !important; font-size: 18px !important; font-weight: bold !important; text-shadow: 0 0 8px #ff00ff !important; margin-top: 10px !important; }
         [data-testid="stSidebar"] { background: BACKGROUND_PLACEHOLDER; border-right: 2px solid #ff00ff; }
-        [data-testid="stSidebar"] .stRadio > label div p { color: #ffffff !important; font-weight: 900 !important; font-size: 18px !important; text-shadow: 0 0 5px #00ff00 !important; margin-bottom: 10px; }
-        [data-testid="stSidebar"] .stRadio div[role="radiogroup"] label span p,
-        [data-testid="stSidebar"] .stRadio div[role="radiogroup"] label div p,
-        [data-testid="stSidebar"] .stRadio div[role="radiogroup"] label { color: #ffffff !important; font-weight: bold !important; font-size: 14px !important; }
-        [data-testid="stSidebar"] div[data-baseweb="radio"] div { border-color: #00ff00 !important; background-color: rgba(0, 0, 0, 0.4) !important; }
-        [data-testid="stSidebar"] div[data-baseweb="radio"][aria-checked="true"] span p,
-        [data-testid="stSidebar"] div[data-baseweb="radio"][aria-checked="true"] div p { color: #ff00ff !important; text-shadow: 0 0 8px #ff00ff !important; }
-        [data-testid="stSidebar"] div[data-baseweb="radio"][aria-checked="true"] div div { background-color: #ff00ff !important; }
         </style>
     """.replace("BACKGROUND_PLACEHOLDER", bg_style_raw)
 
     st.markdown(css_code, unsafe_allow_html=True)
 
-    page = st.sidebar.radio("メニューを選択", ["📝 ワンタップ吸引記録", "🧪 リキッドマスター登録", "🌐 新成分マスター登録", "📸 リキッド紹介", "✍️ 体感レビュー入力", "📅 履歴カレンダー"])
+    # 🚬 メニュー選択（サイドバー）
+    page = st.sidebar.selectbox(
+        "メニューを選択", 
+        ["📝 ワンタップ吸引記録", "🧪 リキッドマスター登録", "🌐 新成分マスター登録", "📅 履歴カレンダー", "📸 リキッド紹介", "📋 成分ギャラリー"]
+    )
 
     banner_titles = {
         "📝 ワンタップ吸引記録": "ワンタップ吸引記録",
         "🧪 リキッドマスター登録": "リキッドマスター設定",
         "🌐 新成分マスター登録": "新成分の追加登録",
         "📅 履歴カレンダー": "使用履歴カレンダー",
-        "📊 成分紹介": "リキッド紹介 & レビュー"
+        "📸 リキッド紹介": "各リキッドのフォト＆レビュー",
+        "📋 成分ギャラリー": "成分マスター一覧表"
     }
     current_title = banner_titles.get(page, "Cannatics")
     st.markdown(f"""<div class="custom-title-banner"><h1>🌿 Cannatics</h1><p>{current_title}</p></div>""", unsafe_allow_html=True)
@@ -195,6 +191,9 @@ if check_password():
     LIQUID_MASTER_COLS = ["リキッド名", "配合詳細"]
     LOG_COLS = ["日付", "リキッド名", "パフ数", "配合詳細", "体感した効果", "体感メモ"]
 
+    # ==========================================
+    # 各ページの条件分岐（エラーの無いよう並列処理）
+    # ==========================================
     if page == "📝 ワンタップ吸引記録":
         df_master = load_data_from_db("Liquid_Master", LIQUID_MASTER_COLS)
         if df_master.empty:
@@ -212,7 +211,6 @@ if check_password():
 
     elif page == "🧪 リキッドマスター登録":
         df_master = load_data_from_db("Liquid_Master", LIQUID_MASTER_COLS)
-        
         st.subheader("📦 登録済みのリキッド一覧・編集・削除")
         if df_master.empty:
             st.caption("現在登録されているリキッドはありません。")
@@ -242,10 +240,7 @@ if check_password():
             new_liq_name = st.text_input("📦 新しいリキッド名", value="", key="master_target_liquid_name_new")
             
         st.write("配合割合を入力してください。")
-        
-        g1_total = 0.0
-        g2_total = 0.0
-        g3_total = 0.0
+        g1_total, g2_total, g3_total = 0.0, 0.0, 0.0
         
         g1_data = []
         for i in range(st.session_state.m_g1):
@@ -295,7 +290,6 @@ if check_password():
         st.markdown("---")
 
         btn_label = "💾 編集内容を上書き保存" if st.session_state.edit_target else "💾 マスターに登録"
-        
         if st.session_state.edit_target:
             c_save, c_cancel = st.columns(2)
             with c_save: save_clicked = st.button(btn_label, key="btn_save_master")
@@ -319,7 +313,6 @@ if check_password():
                     st.error("比率が0.1%以上の成分を1つ以上入力してください")
                 else:
                     detail_str = ", ".join(parts)
-                    
                     if st.session_state.edit_target:
                         df_master = df_master[df_master["リキッド名"] != st.session_state.edit_target]
                         new_row = pd.DataFrame([{"リキッド名": new_liq_name, "配合詳細": detail_str}])
@@ -332,11 +325,6 @@ if check_password():
                         st.success(f"🎉 「{new_liq_name}」を新規登録しました！")
                     st.rerun()
 
-    elif page == "📊 成分紹介":
-        try:
-            with open("review.py", encoding="utf-8") as f: exec(f.read(), globals())
-        except Exception as e: st.error(f"読み込みエラー: {e}")
-
     elif page == "🌐 新成分マスター登録":
         try:
             with open("seibunn.py", encoding="utf-8") as f: exec(f.read(), globals())
@@ -347,12 +335,12 @@ if check_password():
             with open("calendar.py", encoding="utf-8") as f: exec(f.read(), globals())
         except Exception as e: st.error(f"⚠️ 履歴カレンダーの読み込みに失敗しました: {e}")
 
-    if page == "📸 リキッド紹介":
+    elif page == "📸 リキッド紹介":
         try:
-            with open("liquid_intro.py", encoding="utf-8") as f: exec(f.read(), globals())
+            with open("liquid.py", encoding="utf-8") as f: exec(f.read(), globals())
         except Exception as e: st.error(f"読み込みエラー: {e}")
 
-    elif page == "✍️ 体感レビュー入力":
+    elif page == "📋 成分ギャラリー":
         try:
-            with open("review.py", encoding="utf-8") as f: exec(f.read(), globals())
+            with open("gallery.py", encoding="utf-8") as f: exec(f.read(), globals())
         except Exception as e: st.error(f"読み込みエラー: {e}")
