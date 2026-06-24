@@ -41,7 +41,7 @@ else:
         st.title("🌿 Cannatics (カンナティクス)")
         st.subheader("🧪 グループ別・配合電卓")
         
-        # ボタンの配置と枠の追加/削除のモック
+        # ボタンの配置と枠の追加/削除
         col1, col2 = st.columns(2)
         with col1:
             st.button("＋ 枠を追加")
@@ -79,7 +79,3 @@ else:
             st.dataframe(df, use_container_width=True)
         except Exception as e:
             st.warning("data.xlsx を読み込めませんでした。ファイルがリポジトリに存在するか確認してください。")
-                }
-                st.success(f"🎉 {date_str} のログを保存しました！『📅 履歴カレンダー』を確認してください。")
-    else:
-        pg.run()
