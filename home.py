@@ -180,7 +180,7 @@ if check_password():
 
     st.markdown(css_code, unsafe_allow_html=True)
 
-    page = st.sidebar.radio("メニューを選択", ["📝 ワンタップ吸引記録", "🧪 リキッドマスター登録", "🌐 新成分マスター登録", "📅 履歴カレンダー", "📊 成分紹介"])
+    page = st.sidebar.radio("メニューを選択", ["📝 ワンタップ吸引記録", "🧪 リキッドマスター登録", "🌐 新成分マスター登録", "📸 リキッド紹介", "✍️ 体感レビュー入力", "📅 履歴カレンダー"])
 
     banner_titles = {
         "📝 ワンタップ吸引記録": "ワンタップ吸引記録",
@@ -346,3 +346,13 @@ if check_password():
         try:
             with open("calendar.py", encoding="utf-8") as f: exec(f.read(), globals())
         except Exception as e: st.error(f"⚠️ 履歴カレンダーの読み込みに失敗しました: {e}")
+
+    if page == "📸 リキッド紹介":
+        try:
+            with open("liquid_intro.py", encoding="utf-8") as f: exec(f.read(), globals())
+        except Exception as e: st.error(f"読み込みエラー: {e}")
+
+    elif page == "✍️ 体感レビュー入力":
+        try:
+            with open("review.py", encoding="utf-8") as f: exec(f.read(), globals())
+        except Exception as e: st.error(f"読み込みエラー: {e}")
