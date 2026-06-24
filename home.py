@@ -36,13 +36,9 @@ def check_password():
 if check_password():
 
     # 💡 セッション変数の初期化
-    if "custom_components" not in st.session_state:
-        st.session_state["custom_components"] = []
     if "m_g1" not in st.session_state: st.session_state.m_g1 = 1
     if "m_g2" not in st.session_state: st.session_state.m_g2 = 1
     if "m_g3" not in st.session_state: st.session_state.m_g3 = 1
-    
-    # 💡 編集モード管理用のセッション変数
     if "edit_target" not in st.session_state: st.session_state.edit_target = None
 
     # --- 🔗 データベース接続・読み書き関数 ---
@@ -79,11 +75,15 @@ if check_password():
         if client:
             try:
                 sh = client.open("Cannatics_Database")
-                worksheet = sh.worksheet(sheet_name)
+                try:
+                    worksheet = sh.worksheet(sheet_name)
+                except gspread.exceptions.WorksheetNotFound:
+                    # シートが無ければ自動で作る
+                    worksheet = sh.add_worksheet(title=sheet_name, rows="100", cols="10")
                 worksheet.clear()
                 worksheet.append_row(default_cols)
                 if not df.empty:
-                    worksheet.append_rows(df[default_cols].values.tolist())
+                    worksheet.append_rows(df[default_cols].astype(str).values.tolist())
                 return True
             except Exception: pass
         df.to_csv(f"{sheet_name}.csv", index=False)
@@ -94,8 +94,12 @@ if check_password():
         if client:
             try:
                 sh = client.open("Cannatics_Database")
-                worksheet = sh.worksheet(sheet_name)
-                row_to_append = [new_row_dict.get(col, "") for col in default_cols]
+                try:
+                    worksheet = sh.worksheet(sheet_name)
+                except gspread.exceptions.WorksheetNotFound:
+                    worksheet = sh.add_worksheet(title=sheet_name, rows="100", cols="10")
+                    worksheet.append_row(default_cols)
+                row_to_append = [str(new_row_dict.get(col, "")) for col in default_cols]
                 worksheet.append_row(row_to_append)
                 return True
             except Exception: pass
@@ -116,20 +120,28 @@ if check_password():
             return g1, g2, g3
         except Exception: return ["CRDP", "THA"], ["CBD", "CBG"], ["ミルセン", "リモネン"]
 
+    # 💡 永久保存用のカラム定義
+    COMP_MASTER_COLS = ["成分名", "分類"]
+
+    # ドロップダウンの初期化とシートからの同期
     if 'g1_presets' not in st.session_state or 'g2_presets' not in st.session_state or 'g3_presets' not in st.session_state:
         g1_init, g2_init, g3_init = load_excel_presets()
         st.session_state['g1_presets'] = g1_init
         st.session_state['g2_presets'] = g2_init
         st.session_state['g3_presets'] = g3_init
-
-    if "custom_components" in st.session_state:
-        for comp in st.session_state.custom_components:
-            if comp['group'] == '主要成分' and comp['name'] not in st.session_state['g1_presets']:
-                st.session_state['g1_presets'].append(comp['name'])
-            elif comp['group'] == 'ベース' and comp['name'] not in st.session_state['g2_presets']:
-                st.session_state['g2_presets'].append(comp['name'])
-            elif comp['group'] == 'テルペン' and comp['name'] not in st.session_state['g3_presets']:
-                st.session_state['g3_presets'].append(comp['name'])
+        
+        # 💡 アプリ起動時に、スプレッドシートに永久保存されている追加成分を自動で読み込んで合流させる
+        df_saved_comps = load_data_from_db("Components_Master", COMP_MASTER_COLS)
+        if not df_saved_comps.empty:
+            for _, r in df_saved_comps.iterrows():
+                c_name = str(r["成分名"])
+                c_group = str(r["分類"])
+                if c_group == "主要成分" and c_name not in st.session_state['g1_presets']:
+                    st.session_state['g1_presets'].append(c_name)
+                elif "ベース" in c_group and c_name not in st.session_state['g2_presets']:
+                    st.session_state['g2_presets'].append(c_name)
+                elif "テルペン" in c_group and c_name not in st.session_state['g3_presets']:
+                    st.session_state['g3_presets'].append(c_name)
 
     g1_presets = st.session_state['g1_presets']
     g2_presets = st.session_state['g2_presets']
@@ -201,7 +213,6 @@ if check_password():
     elif page == "🧪 リキッドマスター登録":
         df_master = load_data_from_db("Liquid_Master", LIQUID_MASTER_COLS)
         
-        # === 🗑️ 登録データ一覧・編集・削除管理セクション ===
         st.subheader("📦 登録済みのリキッド一覧・編集・削除")
         if df_master.empty:
             st.caption("現在登録されているリキッドはありません。")
@@ -213,7 +224,7 @@ if check_password():
                 with col_btn1:
                     if st.button("📝 編集", key=f"edit_btn_{index}"):
                         st.session_state.edit_target = row['リキッド名']
-                        st.rerun()  # 💡 邪魔なテキストを出さずに即更新
+                        st.rerun()
                 with col_btn2:
                     if st.button("🗑️ 削除", key=f"del_btn_{index}"):
                         df_updated = df_master.drop(index)
@@ -223,8 +234,6 @@ if check_password():
 
         st.markdown("---")
         
-        # === ✍️ 新規登録＆編集入力フォーム ===
-        # 💡 st.infoの長い表示を撤去し、入力欄の「文言」自体を変化させてスッキリさせました！
         if st.session_state.edit_target:
             st.subheader("🧪 登録内容の編集・上書き")
             new_liq_name = st.text_input(f"📦 修正後のリキッド名 (元の名前: {st.session_state.edit_target})", value=st.session_state.edit_target, key="master_target_liquid_name_edit")
@@ -238,7 +247,6 @@ if check_password():
         g2_total = 0.0
         g3_total = 0.0
         
-        # --- ➕ 主要成分エリア ---
         g1_data = []
         for i in range(st.session_state.m_g1):
             c1, c2 = st.columns([2, 1])
@@ -250,7 +258,6 @@ if check_password():
             st.session_state.m_g1 += 1
             st.rerun()
             
-        # --- ➕ 天然成分エリア ---
         g2_data = []
         for i in range(st.session_state.m_g2):
             c1, c2 = st.columns([2, 1])
@@ -262,7 +269,6 @@ if check_password():
             st.session_state.m_g2 += 1
             st.rerun()
 
-        # --- ➕ テルペン成分エリア ---
         g3_data = []
         for i in range(st.session_state.m_g3):
             c1, c2 = st.columns([2, 1])
@@ -274,7 +280,6 @@ if check_password():
             st.session_state.m_g3 += 1
             st.rerun()
 
-        # --- 📊 リアルタイムメーター ---
         total_all = g1_total + g2_total + g3_total
         st.markdown("---")
         st.markdown("### 📊 現在の配合比率（リアルタイム計算）")
@@ -289,17 +294,13 @@ if check_password():
             col_m4.metric("🏆 総合合計", f"{total_all:.1f} %")
         st.markdown("---")
 
-        # 💾 保存処理（新規登録 or 編集上書き）
         btn_label = "💾 編集内容を上書き保存" if st.session_state.edit_target else "💾 マスターに登録"
         
-        # 💡 編集ボタンとキャンセルボタンを並べて配置
         if st.session_state.edit_target:
             c_save, c_cancel = st.columns(2)
-            with c_save:
-                save_clicked = st.button(btn_label, key="btn_save_master")
+            with c_save: save_clicked = st.button(btn_label, key="btn_save_master")
             with c_cancel:
-                cancel_clicked = st.button("❌ 編集をキャンセル")
-                if cancel_clicked:
+                if st.button("❌ 編集をキャンセル"):
                     st.session_state.edit_target = None
                     st.rerun()
         else:
@@ -329,7 +330,6 @@ if check_password():
                     else:
                         save_data_to_db("Liquid_Master", {"リキッド名": new_liq_name, "配合詳細": detail_str}, LIQUID_MASTER_COLS)
                         st.success(f"🎉 「{new_liq_name}」を新規登録しました！")
-                        
                     st.rerun()
 
     elif page == "📊 成分紹介":
