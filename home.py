@@ -69,7 +69,7 @@ if check_password():
 
     g1_presets, g2_presets, g3_presets, extracted_effects = load_excel_and_extract_tags()
 
-    # カスタムCSS（リクエストのデザイン修正を追加）
+    # カスタムCSS（デザイン修正を安全に適用）
     st.markdown("""
         <style>
         .stApp { background-color: #ffffff; color: #000000; }
@@ -80,7 +80,7 @@ if check_password():
             background-color: #98FB98 !important; 
             color: #000000 !important; 
             font-weight: bold; 
-            border_radius: 8px; 
+            border-radius: 8px; 
             border: 1px solid #000000; 
             width: 100%; 
             height: 45px;
@@ -105,16 +105,10 @@ if check_password():
     if "group3_rows" not in st.session_state: st.session_state.group3_rows = 1
     if "history_logs" not in st.session_state: st.session_state.history_logs = {}
 
-    pg_home = st.Page("home.py", title="📝 配合電卓・分析", icon="📝")
-    pg_seibunn = st.Page("seibunn.py", title="🌐 新成分マスター登録", icon="🌐")
-    pg_calendar = st.Page("calendar.py", title="📅 履歴カレンダー", icon="📅")
-    
-    # 🌟 【修正箇所】ナビゲーションに「成分紹介」のダミーページを紐付け
-    pg_intro = st.Page("home.py", title="📊 成分紹介", icon="📊")
-    
-    pg = st.navigation([pg_home, pg_seibunn, pg_calendar, pg_intro], position="sidebar")
+    # 🌟 エラー回避対策：安全なラジオボタン形式のメニュー（サイドバー）に変更
+    page = st.sidebar.radio("メニューを選択", ["📝 配合電卓・分析", "🌐 新成分マスター登録", "📅 履歴カレンダー", "📊 成分紹介"])
 
-    if pg == pg_home:
+    if page == "📝 配合電卓・分析":
         st.title("🌿 Cannatics (カンナティクス)")
         st.subheader("🧪 グループ別・配合電卓")
 
@@ -205,8 +199,27 @@ if check_password():
                 }
                 st.success(f"🎉 {date_str} のログを保存しました！『📅 履歴カレンダー』を確認してください。")
 
-    # 🌟 【ここから末尾に新規付け足し】成分紹介メニューが選ばれたときの表示処理
-    elif pg == pg_intro:
+    # --- 新成分マスター登録（元々の仕様を実行） ---
+    elif page == "🌐 新成分マスター登録":
+        # 外部ファイルとして読み込めないエラーを防ぐため、安全に分岐スクリプトを実行
+        try:
+            with open("seibunn.py", encoding="utf-8") as f:
+                exec(f.read(), globals())
+        except Exception as e:
+            st.title("🌐 新成分マスター登録")
+            st.write("`seibunn.py` を読み込めませんでした。ファイルがリポジトリに存在するか確認してください。")
+
+    # --- 履歴カレンダー（元々の仕様を実行） ---
+    elif page == "📅 履歴カレンダー":
+        try:
+            with open("calendar.py", encoding="utf-8") as f:
+                exec(f.read(), globals())
+        except Exception as e:
+            st.title("📅 履歴カレンダー")
+            st.write("`calendar.py` を読み込めませんでした。ファイルがリポジトリに存在するか確認してください。")
+
+    # --- 📊 成分紹介ページ（Excelの複数シートを跨いで表示） ---
+    elif page == "📊 成分紹介":
         st.title("📊 カンナティクス 成分紹介")
         st.write("`data.xlsx` に登録されている、すべてのシートの成分データを切り替えて確認できます。")
 
@@ -237,6 +250,3 @@ if check_password():
                 st.error(f"Excelシートの読み込み中に予期せぬエラーが起きました: {e}")
         else:
             st.warning("`data.xlsx` が見つかりませんでした。GitHubにファイルがあるか確認してください。")
-
-    else:
-        pg.run()
