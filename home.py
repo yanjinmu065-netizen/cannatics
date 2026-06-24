@@ -75,7 +75,6 @@ if check_password():
         return pd.DataFrame(columns=default_cols)
 
     def save_all_data_to_db(sheet_name, df, default_cols):
-        """データをすべて上書き保存する（削除や編集で使用）"""
         client = get_spreadsheet_client()
         if client:
             try:
@@ -214,7 +213,7 @@ if check_password():
                 with col_btn1:
                     if st.button("📝 編集", key=f"edit_btn_{index}"):
                         st.session_state.edit_target = row['リキッド名']
-                        st.info(f"「{row['リキッド名']}」の編集モードを開始しました。下の入力欄で修正してください。")
+                        st.rerun()  # 💡 邪魔なテキストを出さずに即更新
                 with col_btn2:
                     if st.button("🗑️ 削除", key=f"del_btn_{index}"):
                         df_updated = df_master.drop(index)
@@ -225,10 +224,10 @@ if check_password():
         st.markdown("---")
         
         # === ✍️ 新規登録＆編集入力フォーム ===
+        # 💡 st.infoの長い表示を撤去し、入力欄の「文言」自体を変化させてスッキリさせました！
         if st.session_state.edit_target:
-            st.subheader(f"📝 「{st.session_state.edit_target}」の編集・上書き")
-            # 既存の名前を初期値にする
-            new_liq_name = st.text_input("📦 リキッド名", value=st.session_state.edit_target, key="master_target_liquid_name_edit")
+            st.subheader("🧪 登録内容の編集・上書き")
+            new_liq_name = st.text_input(f"📦 修正後のリキッド名 (元の名前: {st.session_state.edit_target})", value=st.session_state.edit_target, key="master_target_liquid_name_edit")
         else:
             st.subheader("🧪 新規リキッドの登録")
             new_liq_name = st.text_input("📦 新しいリキッド名", value="", key="master_target_liquid_name_new")
@@ -293,7 +292,20 @@ if check_password():
         # 💾 保存処理（新規登録 or 編集上書き）
         btn_label = "💾 編集内容を上書き保存" if st.session_state.edit_target else "💾 マスターに登録"
         
-        if st.button(btn_label, key="btn_save_master"):
+        # 💡 編集ボタンとキャンセルボタンを並べて配置
+        if st.session_state.edit_target:
+            c_save, c_cancel = st.columns(2)
+            with c_save:
+                save_clicked = st.button(btn_label, key="btn_save_master")
+            with c_cancel:
+                cancel_clicked = st.button("❌ 編集をキャンセル")
+                if cancel_clicked:
+                    st.session_state.edit_target = None
+                    st.rerun()
+        else:
+            save_clicked = st.button(btn_label, key="btn_save_master")
+
+        if save_clicked:
             if not new_liq_name:
                 st.error("リキッド名を入力してください")
             else:
@@ -308,24 +320,17 @@ if check_password():
                     detail_str = ", ".join(parts)
                     
                     if st.session_state.edit_target:
-                        # 💡 編集モードの場合は、元々の一覧から古いデータを消して、新しい内容に差し替える
                         df_master = df_master[df_master["リキッド名"] != st.session_state.edit_target]
                         new_row = pd.DataFrame([{"リキッド名": new_liq_name, "配合詳細": detail_str}])
                         df_updated = pd.concat([df_master, new_row], ignore_index=True)
                         save_all_data_to_db("Liquid_Master", df_updated, LIQUID_MASTER_COLS)
                         st.success(f"🎉 「{new_liq_name}」に編集内容を上書き保存しました！")
-                        st.session_state.edit_target = None  # 編集モード終了
+                        st.session_state.edit_target = None
                     else:
-                        # 新規登録モード
                         save_data_to_db("Liquid_Master", {"リキッド名": new_liq_name, "配合詳細": detail_str}, LIQUID_MASTER_COLS)
                         st.success(f"🎉 「{new_liq_name}」を新規登録しました！")
                         
                     st.rerun()
-                    
-        if st.session_state.edit_target:
-            if st.button("❌ 編集をキャンセル"):
-                st.session_state.edit_target = None
-                st.rerun()
 
     elif page == "📊 成分紹介":
         try:
