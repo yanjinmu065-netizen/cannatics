@@ -47,7 +47,11 @@ else:
             cols = st.columns(3)
             for i, (_, row) in enumerate(img_logs.iterrows()):
                 with cols[i % 3]:
-                    st.image(f"data:image/png;base64,{row['画像']}", use_column_width=True)
+                    img_str = str(row["画像"]).strip()
+                    if not img_str.startswith("data:image"):
+                        img_str = f"data:image/png;base64,{img_str}"
+                    
+                    st.markdown(f'<img src="{img_str}" style="width:100%; border-radius:5px; margin-bottom:5px;">', unsafe_allow_html=True)
                     st.caption(f"📅 {row['日付']}")
         else:
             st.caption("📸 このリキッドに登録された写真はありません。")
@@ -56,7 +60,7 @@ else:
 
     st.markdown("---")
 
-    # 📋 これまでのレビュー履歴（日付カラムは非表示）
+    # 📋 これまでのレビュー履歴（日付なし）
     st.subheader("📋 これまでのレビュー履歴")
     if not target_logs.empty:
         display_rows = []
