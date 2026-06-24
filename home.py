@@ -187,8 +187,7 @@ if check_password():
         "🧪 リキッドマスター登録": "リキッドマスター設定",
         "🌐 新成分マスター登録": "新成分の追加登録",
         "📅 履歴カレンダー": "使用履歴カレンダー",
-        "📊 成分紹介": "リキッド紹介 & レビュー",
-        "📖成分ギャラリー":"成分一覧"
+        "📊 成分紹介": "リキッド紹介 & レビュー"
     }
     current_title = banner_titles.get(page, "Cannatics")
     st.markdown(f"""<div class="custom-title-banner"><h1>🌿 Cannatics</h1><p>{current_title}</p></div>""", unsafe_allow_html=True)
@@ -357,9 +356,3 @@ if check_password():
         try:
             with open("review.py", encoding="utf-8") as f: exec(f.read(), globals())
         except Exception as e: st.error(f"読み込みエラー: {e}")
-
-     elif page == "成分ギャラリー":
-            try:
-                with open("gallery.py", encoding="utf-8") as f: exec(f.read(), globals())
-            except Exception as e: st.error(f"読み込みエラー: {e}")
-
