@@ -129,7 +129,7 @@ if check_password():
         st.session_state['g2_presets'] = g2_init
         st.session_state['g3_presets'] = g3_init
         
-        # 💡 アプリ起動時に追加成分を自動ロード
+        # 💡 追加成分をロード
         df_saved_comps = load_data_from_db("Components_Master", COMP_MASTER_COLS)
         if not df_saved_comps.empty:
             for _, r in df_saved_comps.iterrows():
@@ -179,7 +179,7 @@ if check_password():
 
     st.markdown(css_code, unsafe_allow_html=True)
 
-    # 🚬 サイドバーのメニュー構成（文字列を完全固定）
+    # 🚬 サイドバーのメニュー構成（改名：成分紹介 → レビュー）
     page = st.sidebar.radio(
         "メニュー項目", 
         [
@@ -187,20 +187,20 @@ if check_password():
             "🧪 リキッドマスター登録", 
             "🌐 新成分マスター登録", 
             "📅 履歴カレンダー", 
-            "📊 成分紹介", 
+            "📊 レビュー", 
             "📖 成分ギャラリー",
             "📸 リキッド紹介",
             "✍️ 体感レビュー入力"
         ]
     )
 
-    # 💡 タイトルバナー設定（文字列を完全一致）
+    # 💡 タイトルバナー設定（改名：成分紹介 → レビュー）
     banner_titles = {
         "📝 ワンタップ吸引記録": "ワンタップ吸引記録",
         "🧪 リキッドマスター登録": "リキッドマスター設定",
         "🌐 新成分マスター登録": "新成分の追加登録",
         "📅 履歴カレンダー": "使用履歴カレンダー",
-        "📊 成分紹介": "リキッド紹介 & レビュー",
+        "📊 レビュー": "レビュー一覧 & 統計",
         "📖 成分ギャラリー": "成分一覧",
         "📸 リキッド紹介": "各リキッドのフォト＆レビュー",
         "✍️ 体感レビュー入力": "体感レビュー入力フォーム"
@@ -211,7 +211,7 @@ if check_password():
     LIQUID_MASTER_COLS = ["リキッド名", "配合詳細"]
     LOG_COLS = ["日付", "リキッド名", "パフ数", "配合詳細", "体感した効果", "体感メモ"]
 
-    # --- 各ページの条件分岐（スペース・インデントを完璧に修正） ---
+    # --- 各ページの条件分岐 ---
     if page == "📝 ワンタップ吸引記録":
         df_master = load_data_from_db("Liquid_Master", LIQUID_MASTER_COLS)
         if df_master.empty:
@@ -353,7 +353,7 @@ if check_password():
             with open("calendar.py", encoding="utf-8") as f: exec(f.read(), globals())
         except Exception as e: st.error(f"⚠️ 履歴カレンダーの読み込みに失敗しました: {e}")
 
-    elif page == "📊 成分紹介":
+    elif page == "📊 レビュー":
         try:
             with open("review.py", encoding="utf-8") as f: exec(f.read(), globals())
         except Exception as e: st.error(f"読み込みエラー: {e}")
