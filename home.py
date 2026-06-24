@@ -144,30 +144,25 @@ if check_password():
     LIQUID_MASTER_COLS = ["リキッド名", "配合詳細"]
     LOG_COLS = ["日付", "リキッド名", "パフ数", "配合詳細", "体感した効果", "体感メモ"]
 
+    # 📌 サイドバーメニュー
     page = st.sidebar.radio("メニューを選択", ["📝 ワンタップ吸引記録", "🧪 リキッドマスター登録", "🌐 新成分マスター登録", "📅 履歴カレンダー", "📊 成分紹介"])
 
     # -------------------------------------------------------------------------
-    # 📝 ワンタップ吸引記録（超シンプル版）
+    # 📝 ワンタップ吸引記録
     # -------------------------------------------------------------------------
     if page == "📝 ワンタップ吸引記録":
         st.markdown("""<div class="custom-title-banner"><h1>🌿 Cannatics</h1><p>ワンタップ吸引記録</p></div>""", unsafe_allow_html=True)
-        
         df_master = load_data_from_db("Liquid_Master", LIQUID_MASTER_COLS)
         
         if df_master.empty:
             st.warning("⚠️ まだリキッドが登録されていません。先に「🧪 リキッドマスター登録」画面でリキッドを追加してください。")
         else:
             st.subheader("⚡ 選択して即記録")
-            
-            # 1. リキッドの選択
             selected_liq = st.selectbox("🚬 吸うリキッドを選択", df_master["リキッド名"].tolist())
             liq_detail = df_master[df_master["リキッド名"] == selected_liq]["配合詳細"].values[0]
             st.caption(f"現在の配合: {liq_detail}")
             
-            # 2. パフ数
             puffs = st.slider("摂取量 (パフ数)", 1, 15, 3)
-            
-            # 3. カレンダーの日付選択
             log_date = st.date_input("日付を選択", datetime.date.today())
             
             st.markdown(" ")
@@ -175,13 +170,13 @@ if check_password():
                 date_str = log_date.strftime("%Y-%m-%d")
                 new_log_row = {
                     "日付": date_str, "リキッド名": selected_liq, "パフ数": puffs,
-                    "配合詳細": liq_detail, "体感した効果": "", "体感メモ": "" # レビューは空で登録
+                    "配合詳細": liq_detail, "体感した効果": "", "体感メモ": ""
                 }
                 success = save_data_to_db("Attraction_Logs", new_log_row, LOG_COLS)
                 if success:
                     st.success(f"🎉 {selected_liq} を {puffs}パフ 記録しました！")
                 else:
-                    st.success(f"🎉 ローカル端末に保存しました。")
+                    st.success(f"🎉 ローカルに保存しました。")
 
     # -------------------------------------------------------------------------
     # 🧪 リキッドマスター登録
@@ -242,7 +237,7 @@ if check_password():
             with open("calendar.py", encoding="utf-8") as f: exec(f.read(), globals())
         except Exception: st.write("ファイルを確認してください。")
     elif page == "📊 成分紹介":
-        # 💡 ここで新設する review.py を呼び出すように変更しました！
+        # 📌 ここで新設する review.py をクリーンに実行
         try:
             with open("review.py", encoding="utf-8") as f: exec(f.read(), globals())
         except Exception as e: st.error(f"review.pyの読み込みエラー: {e}")
