@@ -1,26 +1,28 @@
 import streamlit as st
 import pandas as pd
-import datetime
 
 # 📊 ログ（履歴）のカラム定義
 LOG_COLS = ["日付", "リキッド名", "パフ数", "配合詳細", "体感した効果", "体感メモ"]
 
-# home.pyで選択されているページ（メニュー項目）に応じて表示を切り替えます
+# 💡 page（メニューの選択肢）によって表示を完全に切り替えます
+# -------------------------------------------------------------
+# 🛠️ 1. 入力・編集（マスター登録メニュー側で開いたとき）
+# -------------------------------------------------------------
 if page == "✍️ 体感レビュー入力":
-    st.subheader("✍️ 吸引したリキッドの体感レビューを記録")
+    st.subheader("✍️ 体感レビューの入力・編集")
     
-    # 履歴データベースから、まだレビューが未入力のログや直近のログを取得
+    # 履歴データベースからログを取得
     df_logs = load_data_from_db("Attraction_Logs", LOG_COLS)
     
     if df_logs.empty:
         st.info("💡 まずは『📝 ワンタップ吸引記録』から吸引データを記録してください。")
     else:
-        # 日付とリキッド名の選択肢を作成（直近の記録をレビューしやすくするため逆順に）
+        # プルダウンでリキッド名と日付の組み合わせを選択させる
         log_options = []
         for idx, row in df_logs.iterrows():
             log_options.append(f"{row['日付']} - {row['リキッド名']} ({row['パフ数']}パフ)")
             
-        selected_log_str = st.selectbox("レビューする吸引記録を選んでください", log_options[::-1])
+        selected_log_str = st.selectbox("レビューを記入・変更する記録を選んでください", log_options[::-1])
         
         # 選択されたログの元のインデックスを特定
         selected_idx = len(df_logs) - 1 - log_options[::-1].index(selected_log_str)
@@ -28,54 +30,71 @@ if page == "✍️ 体感レビュー入力":
         
         st.markdown(f"**現在の配合詳細:** `{target_row['配合詳細']}`")
         
-        # レビュー入力フォーム
-        with st.form(key="review_input_form"):
+        # 既存の入力値がある場合はそれを初期値にする（編集対応）
+        current_effects = [e.strip() for e in str(target_row.get("体感した効果", "")).split(",") if e.strip() and e.strip() != "nan"]
+        current_memo = str(target_row.get("体感メモ", "")) if str(target_row.get("体感メモ", "")) != "nan" else ""
+        
+        # レビュー入力・編集フォーム
+        with st.form(key="review_edit_form"):
             effect = st.multiselect(
                 "体感した効果（複数選択可）",
-                ["リラックス", "ハッピー・多幸感", "サティバ系（活気・集中）", "インディカ系（深い眠り・ボディハイ）", "マンチ（食欲増進）", "ヘッドハイ（頭が冴える）", "その他"]
+                ["リラックス", "ハッピー・多幸感", "サティバ系（活気・集中）", "インディカ系（深い眠り・ボディハイ）", "マンチ（食欲増進）", "ヘッドハイ（頭が冴える）", "その他"],
+                default=current_effects
             )
-            memo = st.text_area("体感メモ・具体的な感想（味、香り、ピーク時間など）")
+            memo = st.text_area("体感メモ・具体的な感想", value=current_memo)
             
-            submitted_review = st.form_submit_button("💾 レビューを確定して保存")
+            # ボタンを少し小さく配置
+            col_btn, col_empty = st.columns([2, 5])
+            with col_btn:
+                submitted_review = st.form_submit_button("💾 レビューを確定")
             
         if submitted_review:
-            # 選択された行のデータを更新
+            # 選択された行のデータを書き換え・更新
             df_logs.at[selected_idx, "体感した効果"] = ", ".join(effect)
             df_logs.at[selected_idx, "体感メモ"] = memo
             
             # データベース全体を上書き保存
             if save_all_data_to_db("Attraction_Logs", df_logs, LOG_COLS):
-                st.success("🎉 体感レビューを正常に記録しました！")
+                st.success("🎉 体感レビューを正常に登録・更新しました！閲覧用メニューに反映されます。")
                 st.balloons()
                 st.rerun()
 
+# -------------------------------------------------------------
+# 📖 2. 閲覧専用（メインメニューの「レビュー」側で開いたとき）
+# -------------------------------------------------------------
 elif page == "📊 レビュー":
-    st.subheader("📊 過去の体感レビュー・統計一覧")
+    st.subheader("📖 過去の体感レビュー一覧")
+    st.write("これまでに記録したリキッドの体感メモを確認できます。")
     
     df_logs = load_data_from_db("Attraction_Logs", LOG_COLS)
     
-    # レビュー（体感した効果またはメモ）が書かれているデータのみに絞り込む
-    df_reviews = df_logs[(df_logs["体感した効果"] != "") | (df_logs["体感メモ"] != "")].copy()
+    # レビュー（効果またはメモ）が書かれているデータのみに自動で絞り込み
+    df_reviews = df_logs[
+        (df_logs["体感した効果"].notna()) & (df_logs["体感した効果"] != "") & (df_logs["体感した効果"] != "nan") |
+        (df_logs["体感メモ"].notna()) & (df_logs["体感メモ"] != "") & (df_logs["体感メモ"] != "nan")
+    ].copy()
     
     if df_reviews.empty:
-        st.info("まだレビューが登録されていません。『✍️ 体感レビュー入力』から感想を書き込んでください。")
+        st.info("まだレビューが登録されていません。『⚙️ マスター登録』＞『✍️ 体感レビュー入力』から感想を書き込んでください。")
     else:
-        # 登録されているレビューをカード型で綺麗に表示
+        # 登録されているレビューをカード型で綺麗に一覧表示
         for idx, row in df_reviews.iterrows():
-            st.markdown(
-                f"""
-                <div style="border: 1px solid #e2e8f0; border-radius: 10px; padding: 15px; margin-bottom: 15px; background-color: #ffffff; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
-                    <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-                        <span style="font-weight: bold; color: #333;">📅 {row['日付']}</span>
-                        <span style="background-color: #e2e8f0; padding: 2px 8px; border-radius: 4px; font-size: 12px; color: #555;">💨 {row['パフ数']} Puff</span>
-                    </div>
-                    <h4 style="margin: 0 0 5px 0; color: #000000;">📦 {row['リキッド名']}</h4>
-                    <p style="margin: 0 0 10px 0; font-size: 12px; color: #666;">🧪 配合: {row['配合詳細']}</p>
-                    <div style="margin-bottom: 8px;">
-                        <span style="background-color: #98FB98; padding: 3px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; color: #000;">✨ 体感: {row['体感した効果'] if row['体感した効果'] else '未選択'}</span>
-                    </div>
-                    <p style="margin: 0; font-size: 14px; color: #222; line-height: 1.5; background: #fafafa; padding: 10px; border-radius: 6px;">📝 {row['体感メモ'] if row['体感メモ'] else 'メモなし'}</p>
-                </div>
-                """,
-                unsafe_allow_html=True
+            eff_text = row['体感した効果'] if row['体感した効果'] else '未選択'
+            memo_text = row['体感メモ'] if row['体感メモ'] else 'メモなし'
+            
+            # Markdownの誤作動による黒枠を防ぐため、HTMLを完全に1行に合体して出力
+            card_html = (
+                f'<div style="border:1px solid #e2e8f0;border-radius:10px;padding:15px;margin-bottom:15px;background-color:#ffffff;box-shadow:0 2px 4px rgba(0,0,0,0.05);">'
+                f'<div style="display:flex;justify-content:space-between;margin-bottom:8px;">'
+                f'<span style="font-weight:bold;color:#333;">📅 {row["日付"]}</span>'
+                f'<span style="background-color:#e2e8f0;padding:2px 8px;border-radius:4px;font-size:12px;color:#555;">💨 {row["パフ数"]} Puff</span>'
+                f'</div>'
+                f'<h4 style="margin:0 0 5px 0;color:#000000;">📦 {row["リキッド名"]}</h4>'
+                f'<p style="margin:0 0 10px 0;font-size:12px;color:#666;">🧪 配合: {row["配合詳細"]}</p>'
+                f'<div style="margin-bottom:8px;">'
+                f'<span style="background-color:#98FB98;padding:3px 8px;border-radius:4px;font-size:12px;font-weight:bold;color:#000;">✨ 体感: {eff_text}</span>'
+                f'</div>'
+                f'<p style="margin:0;font-size:14px;color:#222;line-height:1.5;background:#fafafa;padding:10px;border-radius:6px;">📝 {memo_text}</p>'
+                f'</div>'
             )
+            st.markdown(card_html, unsafe_allow_html=True)
