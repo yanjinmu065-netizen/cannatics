@@ -16,6 +16,10 @@ if page == "✍️ 体感レビュー入力":
     if df_logs.empty:
         st.info("💡 まずは『📝 ワンタップ吸引記録』から吸引データを記録してください。")
     else:
+        # 🛠️ 型の安全性を確保するための前処理
+        df_logs["体感した効果"] = df_logs["体感した効果"].fillna("").astype(str)
+        df_logs["体感メモ"] = df_logs["体感メモ"].fillna("").astype(str)
+        
         # プルダウンでリキッド名と日付の組み合わせを選択させる
         log_options = []
         for idx, row in df_logs.iterrows():
@@ -63,10 +67,14 @@ elif page == "📊 レビュー":
     
     df_logs = load_data_from_db("Attraction_Logs", LOG_COLS)
     
+    # 🛠️ 修正ポイント：読み込んだ直後に、型のエラーを防ぐため文字列に強制変換
+    df_logs["体感した効果"] = df_logs["体感した効果"].fillna("").astype(str).str.strip()
+    df_logs["体感メモ"] = df_logs["体感メモ"].fillna("").astype(str).str.strip()
+    
     # レビュー（効果またはメモ）が書かれているデータのみに自動で絞り込み
     df_reviews = df_logs[
-        (df_logs["体感した効果"].notna()) & (df_logs["体感した効果"] != "") & (df_logs["体感した効果"] != "nan") |
-        (df_logs["体感メモ"].notna()) & (df_logs["体感メモ"] != "") & (df_logs["体感メモ"] != "nan")
+        (df_logs["体感した効果"] != "") & (df_logs["体感した効果"] != "nan") |
+        (df_logs["体感メモ"] != "") & (df_logs["体感メモ"] != "nan")
     ].copy()
     
     if df_reviews.empty:
@@ -77,7 +85,6 @@ elif page == "📊 レビュー":
             eff_text = row['体感した効果'] if row['体感した効果'] else '未選択'
             memo_text = row['体感メモ'] if row['体感メモ'] else 'メモなし'
             
-            # 🛠️ 修正ポイント：カードと削除ボタンを1つのコンテナにカプセル化して配置
             with st.container():
                 card_html = (
                     f'<div style="border:1px solid #e2e8f0;border-radius:10px 10px 0 0;padding:15px;background-color:#ffffff;box-shadow:0 2px 4px rgba(0,0,0,0.05);margin-bottom:0;">'
@@ -95,10 +102,8 @@ elif page == "📊 レビュー":
                 )
                 st.markdown(card_html, unsafe_allow_html=True)
                 
-                # カードのすぐ真下にボタン用カラムを作成
                 c_space, c_del = st.columns([5, 1.5])
                 with c_del:
-                    # ループ内の各レビューに対応する削除ボタン
                     if st.button("🗑️ レビューを削除", key=f"del_rev_btn_{idx}"):
                         # 該当する吸引記録のレビュー内容だけをリセット
                         df_logs.at[idx, "体感した効果"] = ""
