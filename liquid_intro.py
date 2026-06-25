@@ -1,76 +1,71 @@
 import streamlit as st
 import pandas as pd
 
-# --- カラム構造の定義 ---
-LIQUID_MASTER_COLS = ["リキッド名", "配合詳細"]
-LOG_COLS = ["日付", "リキッド名", "パフ数", "配合詳細", "体感した効果", "体感メモ", "画像"]
+st.title("📦 リキッド管理（一覧・編集・削除）")
 
-st.title("📸 リキッド紹介 & ギャラリー")
-st.write("各リキッドの写真と、これまでの体感レビュー履歴をまとめて確認できます。")
+# 📊 リキッドマスターのカラム定義（アプリの設定に合わせて適宜調整してください）
+LIQUID_COLS = ["リキッド名", "配合詳細", "フレーバー", "ベース成分", "備考"]
 
-# 1. データベース（Excel / スプレッドシート）からデータを取得
-if 'load_data_from_db' in globals():
-    df_master = globals()['load_data_from_db']("Liquid_Master", LIQUID_MASTER_COLS)
-    df_logs = globals()['load_data_from_db']("Attraction_Logs", LOG_COLS)
+# 1. データベースから最新のリキッド一覧を読み込む
+df_liquid = load_data_from_db("Liquid_Master", LIQUID_COLS)
+
+if df_liquid.empty:
+    st.info("💡 まだ登録されているリキッドがありません。新規追加フォームから登録してください。")
 else:
-    df_master = pd.DataFrame(columns=LIQUID_MASTER_COLS)
-    df_logs = pd.DataFrame(columns=LOG_COLS)
-
-if not df_master.empty:
-    all_liquids = df_master["リキッド名"].dropna().unique().tolist()
-elif not df_logs.empty:
-    all_liquids = df_logs["リキッド名"].dropna().unique().tolist()
-else:
-    all_liquids = []
-
-if not all_liquids:
-    st.warning("⚠️ 現在、登録されているリキッドやレビュー履歴はありません。")
-else:
-    # 🚬 リキッド選択用のドロップダウン
-    selected_liq = st.selectbox("🚬 詳細を確認するリキッドを選択", all_liquids)
+    st.subheader("🔍 登録済みリキッドの確認・操作")
     
-    # 選択リキッドの配合内容を表示
-    liq_row = df_master[df_master["リキッド名"] == selected_liq] if not df_master.empty else pd.DataFrame()
-    if not liq_row.empty:
-        st.info(f"📋 **このリキッドの現在の配合詳細:** {liq_row['配合詳細'].values[0]}")
-
-    # 📸 フォトギャラリー
-    st.subheader("🖼️ フォトギャラリー")
-    target_logs = df_logs[df_logs["リキッド名"] == selected_liq].copy() if not df_logs.empty else pd.DataFrame()
+    # 💡 1. 登録済みのリキッド一覧をプルダウン（セレクトボックス）にする
+    liquid_options = df_liquid["リキッド名"].tolist()
+    selected_liquid_name = st.selectbox("操作するリキッドを選択してください", liquid_options)
     
-    if not target_logs.empty:
-        target_logs['sort_id'] = range(len(target_logs))
-        target_logs = target_logs.sort_values(by=['日付', 'sort_id'], ascending=[False, False])
-        img_logs = target_logs[target_logs["画像"].notna() & (target_logs["画像"] != "")]
-        
-        if not img_logs.empty:
-            cols = st.columns(3)
-            for i, (_, row) in enumerate(img_logs.iterrows()):
-                with cols[i % 3]:
-                    img_str = str(row["画像"]).strip()
-                    if not img_str.startswith("data:image"):
-                        img_str = f"data:image/png;base64,{img_str}"
-                    
-                    st.markdown(f'<img src="{img_str}" style="width:100%; border-radius:5px; margin-bottom:5px;">', unsafe_allow_html=True)
-                    st.caption(f"📅 {row['日付']}")
-        else:
-            st.caption("📸 このリキッドに登録された写真はありません。")
-    else:
-        st.caption("📸 写真はありません。")
-
+    # 選択されたリキッドのデータを取得
+    selected_idx = df_liquid[df_liquid["リキッド名"] == selected_liquid_name].index[0]
+    target_liquid = df_liquid.loc[selected_idx]
+    
     st.markdown("---")
-
-    # 📋 これまでのレビュー履歴（日付なし）
-    st.subheader("📋 これまでのレビュー履歴")
-    if not target_logs.empty:
-        display_rows = []
-        for _, row in target_logs.iterrows():
-            eff_text = row['体感した効果']
-            if (pd.isna(eff_text) or eff_text == '') and pd.notna(row['パフ数']) and row['パフ数'] > 0:
-                eff_text = f"🚬 吸引記録 ({row['パフ数']} puffs)"
-            memo_text = row['体感メモ'] if pd.notna(row['体感メモ']) and row['体感メモ'] != '' else "ーー"
-            display_rows.append({"内容": eff_text, "メモ": memo_text})
+    st.write(f"### ✏️ 「{selected_liquid_name}」の詳細・編集")
+    
+    # 編集用入力フォーム（現在の値を初期値としてセット）
+    edit_name = st.text_input("リキッド名", value=target_liquid.get("リキッド名", ""))
+    edit_detail = st.text_area("配合詳細", value=target_liquid.get("配合詳細", ""))
+    edit_flavor = st.text_input("フレーバー・香り", value=target_liquid.get("フレーバー", ""))
+    
+    # 💡 2. ボタンを小さく横並びにするために、横幅の狭いカラムを作成
+    st.write("") # 少しスペースを空ける
+    col_save, col_del, col_empty = st.columns([1.5, 1.2, 5])  # 比率を小さくすることでボタンが小さくなります
+    
+    # 💾 変更保存ボタン（小さめ）
+    with col_save:
+        save_btn = st.button("💾 変更を保存", key=f"save_{selected_idx}", use_container_width=True)
         
-        st.table(pd.DataFrame(display_rows))
-    else:
-        st.caption("📋 レビュー履歴はまだありません。")
+    # 🗑️ 削除ボタン（小さめ・赤色文字）
+    with col_del:
+        # 誤操作防止の確認チェックボックスを入れる場合はここに追加も可能です
+        del_btn = st.button("🗑️ 削除", key=f"del_{selected_idx}", use_container_width=True)
+        
+    # ーーー ボタン押下時の処理 ーーー
+    if save_btn:
+        try:
+            # DataFrameのデータを上書き
+            df_liquid.at[selected_idx, "リキッド名"] = edit_name.strip()
+            df_liquid.at[selected_idx, "配合詳細"] = edit_detail.strip()
+            df_liquid.at[selected_idx, "フレーバー"] = edit_flavor.strip()
+            
+            # 全体保存
+            if save_all_data_to_db("Liquid_Master", df_liquid, LIQUID_COLS):
+                st.success(f"🎉 「{edit_name}」の変更を保存しました！")
+                st.rerun()
+        except Exception as e:
+            st.error(f"❌ 保存中にエラーが発生しました: {e}")
+            
+    if del_btn:
+        try:
+            # 指定行を削除してインデックスをリセット
+            df_liquid = df_liquid.drop(selected_idx).reset_index(drop=True)
+            
+            # 全体保存
+            if save_all_data_to_db("Liquid_Master", df_liquid, LIQUID_COLS):
+                st.warning(f"🗑️ 「{selected_liquid_name}」を一覧から削除しました。")
+                st.rerun()
+        except Exception as e:
+            st.error(f"❌ 削除中にエラーが発生しました: {e}")
