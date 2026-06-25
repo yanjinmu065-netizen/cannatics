@@ -77,7 +77,7 @@ elif page == "📊 レビュー":
             eff_text = row['体感した効果'] if row['体感した効果'] else '未選択'
             memo_text = row['体感メモ'] if row['体感メモ'] else 'メモなし'
             
-            # 見た目を整えるためのコンテナ
+            # 🛠️ 修正ポイント：カードと削除ボタンを1つのコンテナにカプセル化して配置
             with st.container():
                 card_html = (
                     f'<div style="border:1px solid #e2e8f0;border-radius:10px 10px 0 0;padding:15px;background-color:#ffffff;box-shadow:0 2px 4px rgba(0,0,0,0.05);margin-bottom:0;">'
@@ -95,17 +95,17 @@ elif page == "📊 レビュー":
                 )
                 st.markdown(card_html, unsafe_allow_html=True)
                 
-                # 💡 各カードの下部に削除ボタンを小さく配置
+                # カードのすぐ真下にボタン用カラムを作成
                 c_space, c_del = st.columns([5, 1.5])
                 with c_del:
-                    # インデックスが被らないよう一意のキーを設定
-                    if st.button("🗑️ レビューを削除", key=f"del_rev_{idx}"):
-                        # 該当する吸引記録のレビュー項目だけをリセット
+                    # ループ内の各レビューに対応する削除ボタン
+                    if st.button("🗑️ レビューを削除", key=f"del_rev_btn_{idx}"):
+                        # 該当する吸引記録のレビュー内容だけをリセット
                         df_logs.at[idx, "体感した効果"] = ""
                         df_logs.at[idx, "体感メモ"] = ""
                         
                         # 全体データベースに上書き保存
                         if save_all_data_to_db("Attraction_Logs", df_logs, LOG_COLS):
-                            st.warning(f"⚠️ {row['日付']} の {row['リキッド名']} のレビューを削除しました。")
                             st.rerun()
+                
                 st.markdown('<div style="margin-bottom:20px; border-bottom:1px dashed #e2e8f0;"></div>', unsafe_allow_html=True)
