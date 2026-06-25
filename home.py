@@ -238,8 +238,7 @@ if check_password():
                 "📅 履歴カレンダー",
                 "📊 レビュー",
                 "📖 成分ギャラリー",
-                "📸 リキッド紹介",
-                "✍️ 体感レビュー入力"
+                "📸 リキッド紹介"
             ]
         )
     else:
@@ -247,6 +246,7 @@ if check_password():
             "メニュー項目",
             [
                 "🧪 リキッドマスター登録",
+                "✍️ 体感レビュー入力",
                 "🌐 新成分マスター登録",
                 "✨ 成分ギャラリー登録"
             ]
@@ -290,23 +290,31 @@ if check_password():
     elif page == "🧪 リキッドマスター登録":
         df_master = load_data_from_db("Liquid_Master", LIQUID_MASTER_COLS)
         st.subheader("📦 登録済みのリキッド一覧・編集・削除")
+        
         if df_master.empty:
             st.caption("現在登録されているリキッドはありません。")
         else:
-            for index, row in df_master.iterrows():
-                col_name, col_detail, col_btn1, col_btn2 = st.columns([2, 4, 1, 1])
-                with col_name: st.markdown(f"**{row['リキッド名']}**")
-                with col_detail: st.caption(row['配合詳細'])
-                with col_btn1:
-                    if st.button("📝 編集", key=f"edit_btn_{index}"):
-                        st.session_state.edit_target = row['リキッド名']
-                        st.rerun()
-                with col_btn2:
-                    if st.button("🗑️ 削除", key=f"del_btn_{index}"):
-                        df_updated = df_master.drop(index)
-                        save_all_data_to_db("Liquid_Master", df_updated, LIQUID_MASTER_COLS)
-                        st.success(f"「{row['リキッド名']}」を削除しました。")
-                        st.rerun()
+            # 💡 【プルダウン化】登録済みのリキッドをセレクトボックスに集約
+            liquid_options = df_master["リキッド名"].tolist()
+            selected_liquid_name = st.selectbox("操作・編集するリキッドを選択してください", liquid_options)
+            
+            selected_idx = df_master[df_master["リキッド名"] == selected_liquid_name].index[0]
+            target_liquid = df_master.loc[selected_idx]
+            
+            st.info(f"🧬 現在の配合詳細: {target_liquid['配合詳細']}")
+            
+            # 💡 【ボタンの小型化】幅を狭くして右側を空白で逃がす
+            c_edit, c_del, c_space = st.columns([1.5, 1.2, 5])
+            with c_edit:
+                if st.button("📝 選択肢を編集", key=f"edit_btn_{selected_idx}"):
+                    st.session_state.edit_target = target_liquid['リキッド名']
+                    st.rerun()
+            with c_del:
+                if st.button("🗑️ 削除", key=f"del_btn_{selected_idx}"):
+                    df_updated = df_master.drop(selected_idx).reset_index(drop=True)
+                    save_all_data_to_db("Liquid_Master", df_updated, LIQUID_MASTER_COLS)
+                    st.warning(f"「{target_liquid['リキッド名']}」を削除しました。")
+                    st.rerun()
 
         st.markdown("---")
         
@@ -413,7 +421,8 @@ if check_password():
             with open("calendar.py", encoding="utf-8") as f: exec(f.read(), globals())
         except Exception as e: st.error(f"⚠️ 履歴カレンダーの読み込みに失敗しました: {e}")
 
-    elif page == "📊 レビュー":
+    elif page == "📊 レビュー" or page == "✍️ 体感レビュー入力":
+        # 💡 レビュー関連ページは同じスクリプト(review.py想定)で、ページ変数(page)を渡して役割を切り分け
         try:
             with open("review.py", encoding="utf-8") as f: exec(f.read(), globals())
         except Exception as e: st.error(f"読み込みエラー: {e}")
@@ -431,9 +440,4 @@ if check_password():
     elif page == "📸 リキッド紹介":
         try:
             with open("liquid_intro.py", encoding="utf-8") as f: exec(f.read(), globals())
-        except Exception as e: st.error(f"読み込みエラー: {e}")
-
-    elif page == "✍️ 体感レビュー入力":
-        try:
-            with open("review.py", encoding="utf-8") as f: exec(f.read(), globals())
         except Exception as e: st.error(f"読み込みエラー: {e}")
