@@ -56,10 +56,10 @@ if page == "✍️ 体感レビュー入力":
                 st.rerun()
 
 # -------------------------------------------------------------
-# 📊 パターンB：レビュー閲覧専用（メイン機能・閲覧ページ側）
+# 📊 パターンB：レビュー閲覧・削除（メイン機能・閲覧ページ側）
 # -------------------------------------------------------------
 elif page == "📊 レビュー":
-    st.write("これまでに記録したリキッドの体感メモを確認できます。")
+    st.write("これまでに記録したリキッドの体感メモを確認・管理できます。")
     
     df_logs = load_data_from_db("Attraction_Logs", LOG_COLS)
     
@@ -72,23 +72,40 @@ elif page == "📊 レビュー":
     if df_reviews.empty:
         st.info("まだレビューが登録されていません。『⚙️ マスター登録・管理画面』＞『✍️ 体感レビュー入力』から感想を書き込んでください。")
     else:
-        # 登録されているレビューをカード型で綺麗に一覧表示（入力フォームは一切出さない）
+        # 登録されているレビューを一覧表示
         for idx, row in df_reviews.iterrows():
             eff_text = row['体感した効果'] if row['体感した効果'] else '未選択'
             memo_text = row['体感メモ'] if row['体感メモ'] else 'メモなし'
             
-            card_html = (
-                f'<div style="border:1px solid #e2e8f0;border-radius:10px;padding:15px;margin-bottom:15px;background-color:#ffffff;box-shadow:0 2px 4px rgba(0,0,0,0.05);">'
-                f'<div style="display:flex;justify-content:space-between;margin-bottom:8px;">'
-                f'<span style="font-weight:bold;color:#333;">📅 {row["日付"]}</span>'
-                f'<span style="background-color:#e2e8f0;padding:2px 8px;border-radius:4px;font-size:12px;color:#555;">💨 {row["パフ数"]} Puff</span>'
-                f'</div>'
-                f'<h4 style="margin:0 0 5px 0;color:#000000;">📦 {row["リキッド名"]}</h4>'
-                f'<p style="margin:0 0 10px 0;font-size:12px;color:#666;">🧪 配合: {row["配合詳細"]}</p>'
-                f'<div style="margin-bottom:8px;">'
-                f'<span style="background-color:#98FB98;padding:3px 8px;border-radius:4px;font-size:12px;font-weight:bold;color:#000;">✨ 体感: {eff_text}</span>'
-                f'</div>'
-                f'<p style="margin:0;font-size:14px;color:#222;line-height:1.5;background:#fafafa;padding:10px;border-radius:6px;">📝 {memo_text}</p>'
-                f'</div>'
-            )
-            st.markdown(card_html, unsafe_allow_html=True)
+            # 見た目を整えるためのコンテナ
+            with st.container():
+                card_html = (
+                    f'<div style="border:1px solid #e2e8f0;border-radius:10px 10px 0 0;padding:15px;background-color:#ffffff;box-shadow:0 2px 4px rgba(0,0,0,0.05);margin-bottom:0;">'
+                    f'<div style="display:flex;justify-content:space-between;margin-bottom:8px;">'
+                    f'<span style="font-weight:bold;color:#333;">📅 {row["日付"]}</span>'
+                    f'<span style="background-color:#e2e8f0;padding:2px 8px;border-radius:4px;font-size:12px;color:#555;">💨 {row["パフ数"]} Puff</span>'
+                    f'</div>'
+                    f'<h4 style="margin:0 0 5px 0;color:#000000;">📦 {row["リキッド名"]}</h4>'
+                    f'<p style="margin:0 0 10px 0;font-size:12px;color:#666;">🧪 配合: {row["配合詳細"]}</p>'
+                    f'<div style="margin-bottom:8px;">'
+                    f'<span style="background-color:#98FB98;padding:3px 8px;border-radius:4px;font-size:12px;font-weight:bold;color:#000;">✨ 体感: {eff_text}</span>'
+                    f'</div>'
+                    f'<p style="margin:0;font-size:14px;color:#222;line-height:1.5;background:#fafafa;padding:10px;border-radius:6px;">📝 {memo_text}</p>'
+                    f'</div>'
+                )
+                st.markdown(card_html, unsafe_allow_html=True)
+                
+                # 💡 各カードの下部に削除ボタンを小さく配置
+                c_space, c_del = st.columns([5, 1.5])
+                with c_del:
+                    # インデックスが被らないよう一意のキーを設定
+                    if st.button("🗑️ レビューを削除", key=f"del_rev_{idx}"):
+                        # 該当する吸引記録のレビュー項目だけをリセット
+                        df_logs.at[idx, "体感した効果"] = ""
+                        df_logs.at[idx, "体感メモ"] = ""
+                        
+                        # 全体データベースに上書き保存
+                        if save_all_data_to_db("Attraction_Logs", df_logs, LOG_COLS):
+                            st.warning(f"⚠️ {row['日付']} の {row['リキッド名']} のレビューを削除しました。")
+                            st.rerun()
+                st.markdown('<div style="margin-bottom:20px; border-bottom:1px dashed #e2e8f0;"></div>', unsafe_allow_html=True)
