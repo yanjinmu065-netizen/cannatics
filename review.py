@@ -1,281 +1,94 @@
 import streamlit as st
 import pandas as pd
-import datetime
 
-# --- カラム構造の定義（新しく「画像」カラムを追加） ---
-LIQUID_MASTER_COLS = ["リキッド名", "配合詳細"]
-LOG_COLS = ["日付", "リキッド名", "パフ数", "配合詳細", "体感した効果", "体感メモ", "画像"]
+# 📊 ログ（履歴）のカラム定義
+LOG_COLS = ["日付", "リキッド名", "パフ数", "配合詳細", "体感した効果", "体感メモ"]
 
-# 🎨 ご指定のカラーコードをCSSに完全反映
-st.markdown("""
-<style>
-/* レビュー画面全体のボタン基本スタイル */
-.stButton>button {
-    font-size: 13px !important;
-    padding: 2px 8px !important;
-    height: 32px !important;
-    border-radius: 16px !important;
-    border: 1px solid rgba(0,0,0,0.1) !important;
-    transition: all 0.2s ease;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
-}
-.stButton>button:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 3px 6px rgba(0,0,0,0.1);
-}
-
-/* ★★★ 初期状態（選択されていない時）は一律で薄いグレー ★★★ */
-div[data-testid="column"] button, 
-div[data-testid="stHorizontalBlock"] button {
-    background-color: #fefefe !important;
-    color: #999999 !important;
-    border: 1px solid #eeeeee !important;
-}
-
-/* 満足度（星）ボタンだけはデフォルトの見た目を維持 */
-div[key^="st"] button {
-    background-color: #fafafa !important;
-    color: #000000 !important;
-}
-
-/* クリアボタンは赤文字で固定 */
-button[key*="btn_clear_eff"] {
-    background-color: #ffebee !important;
-    color: #c62828 !important;
-    font-weight: bold !important;
-}
-</style>
-""", unsafe_allow_html=True)
-
-# 💡 タイトルを削除し、説明文だけにしました
-st.write("3つの項目をタップして、写真とレビューを記録しましょう。")
-
-# 💡 選択状態を管理するセッション変数
-if "selected_effects_list" not in st.session_state:
-    st.session_state.selected_effects_list = []
-
-# 1. データベースから現在のデータを取得
-if 'load_data_from_db' in globals():
-    df_master = globals()['load_data_from_db']("Liquid_Master", LIQUID_MASTER_COLS)
-else:
-    df_master = pd.DataFrame(columns=LIQUID_MASTER_COLS)
-
-if df_master.empty:
-    st.warning("⚠️ まだリキッドが登録されていません。「リキッドマスター登録」から登録してください。")
-else:
-    # 対象のリキッドを選択
-    selected_review_liq = st.selectbox("🚬 レビューするリキッドを選択", df_master["リキッド名"].tolist(), key="sb_review_target")
-    liq_detail = df_master[df_master["リキッド名"] == selected_review_liq]["配合詳細"].values[0]
-    st.caption(f"現在の配合内容: {liq_detail}")
+# -------------------------------------------------------------
+# ✍️ パターンA：体感レビュー入力（マスター登録メニュー側）
+# -------------------------------------------------------------
+if page == "✍️ 体感レビュー入力":
+    st.write("過去の吸引記録に対して、体感した効果やメモを登録・編集します。")
     
-    st.markdown("---")
-
-    # =========================================================
-    # 📸 新機能：写真の追加（アップロード）
-    # =========================================================
-    st.subheader("📸 写真を追加（任意）")
-    uploaded_file = st.file_uploader("リキッドや体感の写真をアップロード", type=['png', 'jpg', 'jpeg'])
-    img_data = "" # 初期値は空（写真なし）
+    # 履歴データベースからログを取得
+    df_logs = load_data_from_db("Attraction_Logs", LOG_COLS)
     
-    if uploaded_file is not None:
-        import base64
-        # 画像をテキストデータ（Base64）に変換して保存できるようにする
-        img_data = base64.b64encode(uploaded_file.read()).decode()
-        st.image(uploaded_file, caption="選択された画像", width=150)
-
-    st.markdown("---")
-
-    # =========================================================
-    # 項目①：サティバ / インディカ / ハイブリッド（タップで即保存）
-    # =========================================================
-    st.subheader("① 系統の選択（タップで即保存）")
-    col_sys1, col_sys2, col_sys3, col_sys_spacer = st.columns([1.5, 1.5, 1.5, 3.5])
-    
-    st.markdown("""
-    <style>
-    div[data-testid="column"] button[key*="sb_sat_btn"]:hover { background-color: #ff0000 !important; color: #ffffff !important; }
-    div[data-testid="column"] button[key*="sb_ind_btn"]:hover { background-color: #00ffff !important; color: #000000 !important; }
-    div[data-testid="column"] button[key*="sb_hyb_btn"]:hover { background-color: #ffff00 !important; color: #000000 !important; }
-    </style>
-    """, unsafe_allow_html=True)
-
-    selected_system = None
-    with col_sys1:
-        if st.button("🚀 サティバ", key="sb_sat_btn", use_container_width=True): selected_system = "サティバ"
-    with col_sys2:
-        if st.button("💤 インディカ", key="sb_ind_btn", use_container_width=True): selected_system = "インディカ"
-    with col_sys3:
-        if st.button("🧬 ハイブリッド", key="sb_hyb_btn", use_container_width=True): selected_system = "ハイブリッド"
-
-    if selected_system:
-        new_log_row = {
-            "日付": datetime.date.today().strftime("%Y-%m-%d"),
-            "リキッド名": selected_review_liq,
-            "パフ数": 0,
-            "配合詳細": liq_detail,
-            "体感した効果": f"系統: {selected_system}",
-            "体感メモ": "",
-            "画像": img_data # 写真を一緒に保存
-        }
-        if 'save_data_to_db' in globals():
-            globals()['save_data_to_db']("Attraction_Logs", new_log_row, LOG_COLS)
-            st.success(f"🎉 【{selected_system}】を記録しました！")
-            st.session_state.selected_effects_list = []
-            st.rerun()
-
-    st.markdown("---")
-
-    # =========================================================
-    # 項目②：体感（複数選択）
-    # =========================================================
-    st.subheader("② 体感の選択（複数選択可能）")
-    st.write("👇 ボタンを押して体感をリストに追加していってください。")
-
-    # === 🎨 選択されたボタンをご指定のカラーコードに戻す処理 ===
-    dynamic_css = "<style>"
-    for effect_name in st.session_state.selected_effects_list:
-        if effect_name == "ヘッドハイ": dynamic_css += "button[key*='ef_hh'] { background-color: #ff0000 !important; color: #ffffff !important; border: 1px solid #ff0000 !important; font-weight: bold !important; }"
-        elif effect_name == "ボディハイ": dynamic_css += "button[key*='ef_bh'] { background-color: #00ffff !important; color: #000000 !important; border: 1px solid #00ffff !important; font-weight: bold !important; }"
-        elif effect_name == "睡眠サポート": dynamic_css += "button[key*='ef_su'] { background-color: #00ffff !important; color: #000000 !important; border: 1px solid #00ffff !important; font-weight: bold !important; }"
-        elif effect_name == "多幸感": dynamic_css += "button[key*='ef_tk'] { background-color: #ffff00 !important; color: #000000 !important; border: 1px solid #ffff00 !important; font-weight: bold !important; }"
-        elif effect_name == "陶酔": dynamic_css += "button[key*='ef_ts'] { background-color: #ffc0cb !important; color: #000000 !important; border: 1px solid #ffc0cb !important; font-weight: bold !important; }"
-        elif effect_name == "興奮": dynamic_css += "button[key*='ef_ko'] { background-color: #ff0000 !important; color: #ffffff !important; border: 1px solid #ff0000 !important; font-weight: bold !important; }"
-        elif effect_name == "ストレス緩和": dynamic_css += "button[key*='ef_st'] { background-color: #3cb371 !important; color: #ffffff !important; border: 1px solid #3cb371 !important; font-weight: bold !important; }"
-        elif effect_name == "おしゃべり": dynamic_css += "button[key*='ef_os'] { background-color: #ffff00 !important; color: #000000 !important; border: 1px solid #ffff00 !important; font-weight: bold !important; }"
-        elif effect_name == "食欲増進": dynamic_css += "button[key*='ef_sy'] { background-color: #ffff00 !important; color: #000000 !important; border: 1px solid #ffff00 !important; font-weight: bold !important; }"
-        elif effect_name == "落ち着き": dynamic_css += "button[key*='ef_oc'] { background-color: #3cb371 !important; color: #ffffff !important; border: 1px solid #3cb371 !important; font-weight: bold !important; }"
-        elif effect_name == "リラックス": dynamic_css += "button[key*='ef_rx'] { background-color: #3cb371 !important; color: #ffffff !important; border: 1px solid #3cb371 !important; font-weight: bold !important; }"
-        elif effect_name == "エネルギッシュ": dynamic_css += "button[key*='ef_en'] { background-color: #ffff00 !important; color: #000000 !important; border: 1px solid #ffff00 !important; font-weight: bold !important; }"
-        elif effect_name == "高揚感": dynamic_css += "button[key*='ef_ky'] { background-color: #ff0000 !important; color: #ffffff !important; border: 1px solid #ff0000 !important; font-weight: bold !important; }"
-    dynamic_css += "</style>"
-    st.markdown(dynamic_css, unsafe_allow_html=True)
-
-    b_col1, b_col2, b_col3, b_col4, b_col5 = st.columns(5)
-    
-    with b_col1:
-        if st.button("🧠 ヘッドハイ", key="ef_hh", use_container_width=True):
-            if "ヘッドハイ" not in st.session_state.selected_effects_list: st.session_state.selected_effects_list.append("ヘッドハイ")
-            else: st.session_state.selected_effects_list.remove("ヘッドハイ")
-            st.rerun()
-        if st.button("✨ 陶酔", key="ef_ts", use_container_width=True):
-            if "陶酔" not in st.session_state.selected_effects_list: st.session_state.selected_effects_list.append("陶酔")
-            else: st.session_state.selected_effects_list.remove("陶酔")
-            st.rerun()
-        if st.button("🍕 食欲増進", key="ef_sy", use_container_width=True):
-            if "食欲増進" not in st.session_state.selected_effects_list: st.session_state.selected_effects_list.append("食欲増進")
-            else: st.session_state.selected_effects_list.remove("食欲増進")
-            st.rerun()
-
-    with b_col2:
-        if st.button("🧍 ボディハイ", key="ef_bh", use_container_width=True):
-            if "ボディハイ" not in st.session_state.selected_effects_list: st.session_state.selected_effects_list.append("ボディハイ")
-            else: st.session_state.selected_effects_list.remove("ボディハイ")
-            st.rerun()
-        if st.button("🔥 興奮", key="ef_ko", use_container_width=True):
-            if "興奮" not in st.session_state.selected_effects_list: st.session_state.selected_effects_list.append("興奮")
-            else: st.session_state.selected_effects_list.remove("興奮")
-            st.rerun()
-        if st.button("🟢 落ち着き", key="ef_oc", use_container_width=True):
-            if "落ち着き" not in st.session_state.selected_effects_list: st.session_state.selected_effects_list.append("落ち着き")
-            else: st.session_state.selected_effects_list.remove("落ち着き")
-            st.rerun()
-
-    with b_col3:
-        if st.button("💤 睡眠サポート", key="ef_su", use_container_width=True):
-            if "睡眠サポート" not in st.session_state.selected_effects_list: st.session_state.selected_effects_list.append("睡眠サポート")
-            else: st.session_state.selected_effects_list.remove("睡眠サポート")
-            st.rerun()
-        if st.button("🕊️ ストレス緩和", key="ef_st", use_container_width=True):
-            if "ストレス緩和" not in st.session_state.selected_effects_list: st.session_state.selected_effects_list.append("ストレス緩和")
-            else: st.session_state.selected_effects_list.remove("ストレス緩和")
-            st.rerun()
-        if st.button("🧘‍♂️ リラックス", key="ef_rx", use_container_width=True):
-            if "リラックス" not in st.session_state.selected_effects_list: st.session_state.selected_effects_list.append("リラックス")
-            else: st.session_state.selected_effects_list.remove("リラックス")
-            st.rerun()
-
-    with b_col4:
-        if st.button("🌈 多幸感", key="ef_tk", use_container_width=True):
-            if "多幸感" not in st.session_state.selected_effects_list: st.session_state.selected_effects_list.append("多幸感")
-            else: st.session_state.selected_effects_list.remove("多幸感")
-            st.rerun()
-        if st.button("💬 おしゃべり", key="ef_os", use_container_width=True):
-            if "おしゃべり" not in st.session_state.selected_effects_list: st.session_state.selected_effects_list.append("おしゃべり")
-            else: st.session_state.selected_effects_list.remove("おしゃべり")
-            st.rerun()
-        if st.button("📈 高揚感", key="ef_ky", use_container_width=True):
-            if "高揚感" not in st.session_state.selected_effects_list: st.session_state.selected_effects_list.append("高揚感")
-            else: st.session_state.selected_effects_list.remove("高揚感")
-            st.rerun()
-
-    with b_col5:
-        if st.button("⚡ エネルギッシュ", key="ef_en", use_container_width=True):
-            if "エネルギッシュ" not in st.session_state.selected_effects_list: st.session_state.selected_effects_list.append("エネルギッシュ")
-            else: st.session_state.selected_effects_list.remove("エネルギッシュ")
-            st.rerun()
-
-    # 選択されている体感を画面に表示
-    if st.session_state.selected_effects_list:
-        st.markdown(f"**【選択中】:** `{'` / `'.join(st.session_state.selected_effects_list)}`")
+    if df_logs.empty:
+        st.info("💡 まずは『📝 ワンタップ吸引記録』から吸引データを記録してください。")
+    else:
+        # プルダウンでリキッド名と日付の組み合わせを選択させる
+        log_options = []
+        for idx, row in df_logs.iterrows():
+            log_options.append(f"{row['日付']} - {row['リキッド名']} ({row['パフ数']}パフ)")
+            
+        selected_log_str = st.selectbox("レビューを記入・変更する記録を選んでください", log_options[::-1])
         
-        c_save_eff, c_clear_eff, c_spacer_eff = st.columns([2, 1.5, 4.5])
-        with c_save_eff:
-            if st.button("💾 この体感で保存", key="btn_save_eff_action", type="primary", use_container_width=True):
-                all_effects_str = ", ".join(st.session_state.selected_effects_list)
-                new_log_row = {
-                    "日付": datetime.date.today().strftime("%Y-%m-%d"),
-                    "リキッド名": selected_review_liq,
-                    "パフ数": 0,
-                    "配合詳細": liq_detail,
-                    "体感した効果": f"体感: {all_effects_str}",
-                    "体感メモ": "",
-                    "画像": img_data # 写真を一緒に保存
-                }
-                if 'save_data_to_db' in globals():
-                    globals()['save_data_to_db']("Attraction_Logs", new_log_row, LOG_COLS)
-                    st.success(f"🎉 体感【{all_effects_str}】をまとめて記録しました！")
-                    st.session_state.selected_effects_list = []
-                    st.rerun()
-        with c_clear_eff:
-            if st.button("❌ クリア", key="btn_clear_eff_action", use_container_width=True):
-                st.session_state.selected_effects_list = []
+        # 選択されたログの元のインデックスを特定
+        selected_idx = len(df_logs) - 1 - log_options[::-1].index(selected_log_str)
+        target_row = df_logs.iloc[selected_idx]
+        
+        st.markdown(f"**現在の配合詳細:** `{target_row['配合詳細']}`")
+        
+        # 既存の入力値がある場合はそれを初期値にする（編集対応）
+        current_effects = [e.strip() for e in str(target_row.get("体感した効果", "")).split(",") if e.strip() and e.strip() != "nan"]
+        current_memo = str(target_row.get("体感メモ", "")) if str(target_row.get("体感メモ", "")) != "nan" else ""
+        
+        # 💡 レビュー入力フォーム（まとめて保存）
+        with st.form(key="review_edit_form"):
+            effect = st.multiselect(
+                "体感した効果（複数選択可）",
+                ["リラックス", "ハッピー・多幸感", "サティバ系（活気・集中）", "インディカ系（深い眠り・ボディハイ）", "マンチ（食欲増進）", "ヘッドハイ（頭が冴える）", "その他"],
+                default=current_effects
+            )
+            memo = st.text_area("体感メモ・具体的な感想", value=current_memo)
+            
+            # まとめて確定するボタン
+            submitted_review = st.form_submit_button("💾 レビュー内容をまとめて確定・保存")
+            
+        if submitted_review:
+            # 選択された行のデータを書き換え・更新
+            df_logs.at[selected_idx, "体感した効果"] = ", ".join(effect)
+            df_logs.at[selected_idx, "体感メモ"] = memo
+            
+            # データベース全体を上書き保存
+            if save_all_data_to_db("Attraction_Logs", df_logs, LOG_COLS):
+                st.success("🎉 体感レビューを保存しました！『📊 レビュー』メニューに閲覧用として反映されます。")
                 st.rerun()
 
-    st.markdown("---")
-
-    # =========================================================
-    # 項目③：1〜5での星レビュー（タップで即保存）
-    # =========================================================
-    st.subheader("③ 満足度レビュー（タップで即保存）")
-    star_col1, star_col2, star_col3, star_col4, star_col5, star_spacer = st.columns([0.8, 0.8, 0.8, 0.8, 0.8, 4])
+# -------------------------------------------------------------
+# 📊 パターンB：レビュー閲覧専用（メイン機能・閲覧ページ側）
+# -------------------------------------------------------------
+elif page == "📊 レビュー":
+    st.write("これまでに記録したリキッドの体感メモを確認できます。")
     
-    selected_star = None
-    with star_col1:
-        if st.button("1", key="st1_b", use_container_width=True): selected_star = "★☆☆☆☆ (1)"
-    with star_col2:
-        if st.button("2", key="st2_b", use_container_width=True): selected_star = "★★☆☆☆ (2)"
-    with star_col3:
-        if st.button("3", key="st3_b", use_container_width=True): selected_star = "★★★☆☆ (3)"
-    with star_col4:
-        if st.button("4", key="st4_b", use_container_width=True): selected_star = "★★★★☆ (4)"
-    with star_col5:
-        if st.button("5", key="st5_b", use_container_width=True): selected_star = "★★★★★ (5)"
-
-    if selected_star:
-        new_log_row = {
-            "日付": datetime.date.today().strftime("%Y-%m-%d"),
-            "リキッド名": selected_review_liq,
-            "パフ数": 0,
-            "配合詳細": liq_detail,
-            "体感した効果": f"星評価: {selected_star}",
-            "体感メモ": "",
-            "画像": img_data # 写真を一緒に保存
-        }
-        if 'save_data_to_db' in globals():
-            globals()['save_data_to_db']("Attraction_Logs", new_log_row, LOG_COLS)
-            st.success(f"🎉 評価【{selected_star}】を記録しました！")
-            st.session_state.selected_effects_list = []
-            st.rerun()
-
-    st.markdown("---")
-    st.info("💡 過去のレビューやアップロードした写真は「📸 リキッド紹介」画面でまとめて確認できます。")
+    df_logs = load_data_from_db("Attraction_Logs", LOG_COLS)
+    
+    # レビュー（効果またはメモ）が書かれているデータのみに自動で絞り込み
+    df_reviews = df_logs[
+        (df_logs["体感した効果"].notna()) & (df_logs["体感した効果"] != "") & (df_logs["体感した効果"] != "nan") |
+        (df_logs["体感メモ"].notna()) & (df_logs["体感メモ"] != "") & (df_logs["体感メモ"] != "nan")
+    ].copy()
+    
+    if df_reviews.empty:
+        st.info("まだレビューが登録されていません。『⚙️ マスター登録・管理画面』＞『✍️ 体感レビュー入力』から感想を書き込んでください。")
+    else:
+        # 登録されているレビューをカード型で綺麗に一覧表示（入力フォームは一切出さない）
+        for idx, row in df_reviews.iterrows():
+            eff_text = row['体感した効果'] if row['体感した効果'] else '未選択'
+            memo_text = row['体感メモ'] if row['体感メモ'] else 'メモなし'
+            
+            card_html = (
+                f'<div style="border:1px solid #e2e8f0;border-radius:10px;padding:15px;margin-bottom:15px;background-color:#ffffff;box-shadow:0 2px 4px rgba(0,0,0,0.05);">'
+                f'<div style="display:flex;justify-content:space-between;margin-bottom:8px;">'
+                f'<span style="font-weight:bold;color:#333;">📅 {row["日付"]}</span>'
+                f'<span style="background-color:#e2e8f0;padding:2px 8px;border-radius:4px;font-size:12px;color:#555;">💨 {row["パフ数"]} Puff</span>'
+                f'</div>'
+                f'<h4 style="margin:0 0 5px 0;color:#000000;">📦 {row["リキッド名"]}</h4>'
+                f'<p style="margin:0 0 10px 0;font-size:12px;color:#666;">🧪 配合: {row["配合詳細"]}</p>'
+                f'<div style="margin-bottom:8px;">'
+                f'<span style="background-color:#98FB98;padding:3px 8px;border-radius:4px;font-size:12px;font-weight:bold;color:#000;">✨ 体感: {eff_text}</span>'
+                f'</div>'
+                f'<p style="margin:0;font-size:14px;color:#222;line-height:1.5;background:#fafafa;padding:10px;border-radius:6px;">📝 {memo_text}</p>'
+                f'</div>'
+            )
+            st.markdown(card_html, unsafe_allow_html=True)
