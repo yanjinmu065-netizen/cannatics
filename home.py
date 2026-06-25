@@ -153,70 +153,22 @@ if check_password():
 
     css_code = """
         <style>
-        /* 全体設定 */
         .stApp { background-color: #ffffff; color: #000000; }
         h1, h2, h3, h4, p, label { color: #000000 !important; font-family: 'Noto Sans JP', sans-serif; }
         .stButton>button { 
             background-color: #98FB98 !important; color: #000000 !important; font-weight: bold; border-radius: 8px; border: 1px solid #000000; width: 100%; height: 45px;
         }
         .group-container { border: 1px solid #e2e8f0; border-radius: 10px; padding: 15px; margin-bottom: 20px; background-color: #fafafa; }
-        
-        /* メインバナー設定 */
         .custom-title-banner { background: BACKGROUND_PLACEHOLDER; padding: 40px 20px; border-radius: 12px; text-align: center; margin-bottom: 30px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); }
         .custom-title-banner h1 { color: #ffffff !important; font-size: 34px !important; font-weight: 800 !important; text-shadow: 0 0 10px #00ff00 !important; margin: 0 !important; }
         .custom-title-banner p { color: #ff00ff !important; font-size: 18px !important; font-weight: bold !important; text-shadow: 0 0 8px #ff00ff !important; margin-top: 10px !important; }
-        
-        /* ------------------------------------------------------------
-           🎨 サイドバーのネオン文字装飾 (白文字 + ネオン発光)
-        ------------------------------------------------------------ */
         [data-testid="stSidebar"] { background: BACKGROUND_PLACEHOLDER; border-right: 2px solid #ff00ff; }
-        
-        /* ジャンルヘッダー等のテキスト */
-        [data-testid="stSidebar"] h3 { 
-            color: #ffffff !important; 
-            font-weight: 900 !important; 
-            text-shadow: 0 0 5px #00ff00, 0 0 10px #00ff00 !important; 
-        }
-        
-        /* セレクトボックスのラベル、プルダウン内の文字、ラジオボタンのヘッダー */
-        [data-testid="stSidebar"] label,
-        [data-testid="stSidebar"] .stRadio > label div p { 
-            color: #ffffff !important; 
-            font-weight: 900 !important; 
-            font-size: 16px !important; 
-            text-shadow: 0 0 5px #00ff00, 0 0 10px #00ff00 !important; 
-        }
-        
-        /* 通常（未選択）のメニュー項目テキスト */
-        [data-testid="stSidebar"] .stRadio div[role="radiogroup"] label span p,
-        [data-testid="stSidebar"] .stRadio div[role="radiogroup"] label div p,
-        [data-testid="stSidebar"] .stRadio div[role="radiogroup"] label { 
-            color: #ffffff !important; 
-            font-weight: bold !important; 
-            font-size: 14px !important; 
-            text-shadow: 0 0 3px #00ff00, 0 0 6px #00ff00 !important;
-        }
-        
-        /* ラジオボタンの丸枠（未選択） */
-        [data-testid="stSidebar"] div[data-baseweb="radio"] div { 
-            border-color: #00ff00 !important; 
-            background-color: rgba(0, 0, 0, 0.5) !important; 
-            box-shadow: 0 0 5px #00ff00 !important;
-        }
-        
-        /* 🔥 選択中のメニュー項目テキスト (白ベース＋マゼンタピンクネオン) */
-        [data-testid="stSidebar"] div[data-baseweb="radio"][aria-checked="true"] span p,
-        [data-testid="stSidebar"] div[data-baseweb="radio"][aria-checked="true"] div p { 
-            color: #ffffff !important; 
-            font-weight: 900 !important;
-            text-shadow: 0 0 5px #ff00ff, 0 0 10px #ff00ff, 0 0 15px #ff00ff !important; 
-        }
-        
-        /* ラジオボタンの選択時の中心丸マーク */
-        [data-testid="stSidebar"] div[data-baseweb="radio"][aria-checked="true"] div div { 
-            background-color: #ff00ff !important; 
-            box-shadow: 0 0 8px #ff00ff !important;
-        }
+        [data-testid="stSidebar"] h3 { color: #ffffff !important; font-weight: 900 !important; text-shadow: 0 0 5px #00ff00, 0 0 10px #00ff00 !important; }
+        [data-testid="stSidebar"] label, [data-testid="stSidebar"] .stRadio > label div p { color: #ffffff !important; font-weight: 900 !important; font-size: 16px !important; text-shadow: 0 0 5px #00ff00, 0 0 10px #00ff00 !important; }
+        [data-testid="stSidebar"] .stRadio div[role="radiogroup"] label span p, [data-testid="stSidebar"] .stRadio div[role="radiogroup"] label div p, [data-testid="stSidebar"] .stRadio div[role="radiogroup"] label { color: #ffffff !important; font-weight: bold !important; font-size: 14px !important; text-shadow: 0 0 3px #00ff00, 0 0 6px #00ff00 !important; }
+        [data-testid="stSidebar"] div[data-baseweb="radio"] div { border-color: #00ff00 !important; background-color: rgba(0, 0, 0, 0.5) !important; box-shadow: 0 0 5px #00ff00 !important; }
+        [data-testid="stSidebar"] div[data-baseweb="radio"][aria-checked="true"] span p, [data-testid="stSidebar"] div[data-baseweb="radio"][aria-checked="true"] div p { color: #ffffff !important; font-weight: 900 !important; text-shadow: 0 0 5px #ff00ff, 0 0 10px #ff00ff, 0 0 15px #ff00ff !important; }
+        [data-testid="stSidebar"] div[data-baseweb="radio"][aria-checked="true"] div div { background-color: #ff00ff !important; box-shadow: 0 0 8px #ff00ff !important; }
         </style>
     """.replace("BACKGROUND_PLACEHOLDER", bg_style_raw)
 
@@ -229,7 +181,6 @@ if check_password():
         ["📱 メイン機能・閲覧ページ", "⚙️ マスター登録・管理画面"]
     )
 
-    # ジャンルに紐づく項目を動的に定義
     if genre == "📱 メイン機能・閲覧ページ":
         page = st.sidebar.radio(
             "メニュー項目",
@@ -251,7 +202,6 @@ if check_password():
                 "✨ 成分ギャラリー登録"
             ]
         )
-    # =========================================================================
 
     # 💡 タイトルバナー設定
     banner_titles = {
@@ -259,7 +209,7 @@ if check_password():
         "🧪 リキッドマスター登録": "リキッドマスター設定",
         "🌐 新成分マスター登録": "新成分の追加登録",
         "📅 履歴カレンダー": "使用履歴カレンダー",
-        "📊 レビュー": "レビュー一覧 & 統計",
+        "📊 レビュー": "レビュー一覧",
         "📖 成分ギャラリー": "成分一覧",
         "✨ 成分ギャラリー登録": "ギャラリー用データの新規登録",
         "📸 リキッド紹介": "各リキッドのフォト＆レビュー",
@@ -294,16 +244,13 @@ if check_password():
         if df_master.empty:
             st.caption("現在登録されているリキッドはありません。")
         else:
-            # 💡 【プルダウン化】登録済みのリキッドをセレクトボックスに集約
             liquid_options = df_master["リキッド名"].tolist()
             selected_liquid_name = st.selectbox("操作・編集するリキッドを選択してください", liquid_options)
             
             selected_idx = df_master[df_master["リキッド名"] == selected_liquid_name].index[0]
             target_liquid = df_master.loc[selected_idx]
-            
             st.info(f"🧬 現在の配合詳細: {target_liquid['配合詳細']}")
             
-            # 💡 【ボタンの小型化】幅を狭くして右側を空白で逃がす
             c_edit, c_del, c_space = st.columns([1.5, 1.2, 5])
             with c_edit:
                 if st.button("📝 選択肢を編集", key=f"edit_btn_{selected_idx}"):
@@ -320,7 +267,7 @@ if check_password():
         
         if st.session_state.edit_target:
             st.subheader("🧪 登録内容の編集・上書き")
-            new_liq_name = st.text_input(f"📦 修正後のリキッド名 (元の名前: {st.session_state.edit_target})", value=st.session_state.edit_target, key="master_target_liquid_name_edit")
+            new_liq_name = st.text_input(f"📦 修正後のリキッド名", value=st.session_state.edit_target, key="master_target_liquid_name_edit")
         else:
             st.subheader("🧪 新規リキッドの登録")
             new_liq_name = st.text_input("📦 新しいリキッド名", value="", key="master_target_liquid_name_new")
@@ -328,63 +275,61 @@ if check_password():
         st.write("配合割合を入力してください。")
         g1_total, g2_total, g3_total = 0.0, 0.0, 0.0
         
-        g1_data = []
-        for i in range(st.session_state.m_g1):
-            c1, c2 = st.columns([2, 1])
-            with c1: name = st.selectbox(f"主要成分 {i+1}", g1_presets, key=f"g1_n_{i}")
-            with c2: pct = st.number_input(f"比率%##{i}", min_value=0.0, max_value=100.0, value=0.0, step=0.1, format="%.1f", key=f"g1_p_{i}")
-            g1_data.append((name, pct))
-            g1_total += pct
-        if st.button("➕ 主要成分を追加", key="btn_add_g1"):
-            st.session_state.m_g1 += 1
-            st.rerun()
-            
-        g2_data = []
-        for i in range(st.session_state.m_g2):
-            c1, c2 = st.columns([2, 1])
-            with c1: name = st.selectbox(f"天然成分 {i+1}", g2_presets, key=f"g2_n_{i}")
-            with c2: pct = st.number_input(f"比率% (天然)##{i}", min_value=0.0, max_value=100.0, value=0.0, step=0.1, format="%.1f", key=f"g2_p_{i}")
-            g2_data.append((name, pct))
-            g2_total += pct
-        if st.button("➕ カンナビノイド成分を追加", key="btn_add_g2"):
-            st.session_state.m_g2 += 1
-            st.rerun()
+        # 💡 【まとめて保存方式】フォームの中に比率入力を閉じ込めます
+        with st.form(key="liquid_register_form"):
+            g1_data = []
+            for i in range(st.session_state.m_g1):
+                c1, c2 = st.columns([2, 1])
+                with c1: name = st.selectbox(f"主要成分 {i+1}", g1_presets, key=f"g1_n_{i}")
+                with c2: pct = st.number_input(f"比率%##{i}", min_value=0.0, max_value=100.0, value=0.0, step=0.1, format="%.1f", key=f"g1_p_{i}")
+                g1_data.append((name, pct))
+                g1_total += pct
+                
+            g2_data = []
+            for i in range(st.session_state.m_g2):
+                c1, c2 = st.columns([2, 1])
+                with c1: name = st.selectbox(f"天然成分 {i+1}", g2_presets, key=f"g2_n_{i}")
+                with c2: pct = st.number_input(f"比率% (天然)##{i}", min_value=0.0, max_value=100.0, value=0.0, step=0.1, format="%.1f", key=f"g2_p_{i}")
+                g2_data.append((name, pct))
+                g2_total += pct
 
-        g3_data = []
-        for i in range(st.session_state.m_g3):
-            c1, c2 = st.columns([2, 1])
-            with c1: name = st.selectbox(f"テルペン {i+1}", g3_presets, key=f"g3_n_{i}")
-            with c2: pct = st.number_input(f"比率% (テルペン)##{i}", min_value=0.0, max_value=100.0, value=0.0, step=0.1, format="%.1f", key=f"g3_p_{i}")
-            g3_data.append((name, pct))
-            g3_total += pct
-        if st.button("➕ テルペン成分を追加", key="btn_add_g3"):
-            st.session_state.m_g3 += 1
-            st.rerun()
+            g3_data = []
+            for i in range(st.session_state.m_g3):
+                c1, c2 = st.columns([2, 1])
+                with c1: name = st.selectbox(f"テルペン {i+1}", g3_presets, key=f"g3_n_{i}")
+                with c2: pct = st.number_input(f"比率% (テルペン)##{i}", min_value=0.0, max_value=100.0, value=0.0, step=0.1, format="%.1f", key=f"g3_p_{i}")
+                g3_data.append((name, pct))
+                g3_total += pct
+
+            btn_label = "💾 編集内容を上書き保存" if st.session_state.edit_target else "💾 マスターにまとめて登録"
+            save_clicked = st.form_submit_button(btn_label)
+
+        # 枠を増やすボタン（フォームの外に配置して入力値を維持）
+        c_a1, c_a2, c_a3 = st.columns(3)
+        with c_a1:
+            if st.button("➕ 主要成分枠を追加"):
+                st.session_state.m_g1 += 1
+                st.rerun()
+        with c_a2:
+            if st.button("➕ 天然成分枠を追加"):
+                st.session_state.m_g2 += 1
+                st.rerun()
+        with c_a3:
+            if st.button("➕ テルペン枠を追加"):
+                st.session_state.m_g3 += 1
+                st.rerun()
 
         total_all = g1_total + g2_total + g3_total
-        st.markdown("---")
-        st.markdown("### 📊 現在の配合比率（リアルタイム計算）")
-        col_m1, col_m2, col_m3, col_m4 = st.columns(4)
-        col_m1.metric("🧬 主要成分 合計", f"{g1_total:.1f} %")
-        col_m2.metric("🌿 天然成分 合計", f"{g2_total:.1f} %")
-        col_m3.metric("🍋 テルペン 合計", f"{g3_total:.1f} %")
-        
+        st.markdown("### 📊 入力中の配合比率合計")
         if total_all > 100.0:
             st.error(f"🚨 **総合合計が100%を超えています！ ({total_all:.1f} %)**")
         else:
-            col_m4.metric("🏆 総合合計", f"{total_all:.1f} %")
-        st.markdown("---")
+            st.success(f"🏆 現在の合計: {total_all:.1f} %")
 
-        btn_label = "💾 編集内容を上書き保存" if st.session_state.edit_target else "💾 マスターに登録"
         if st.session_state.edit_target:
-            c_save, c_cancel = st.columns(2)
-            with c_save: save_clicked = st.button(btn_label, key="btn_save_master")
-            with c_cancel:
-                if st.button("❌ 編集をキャンセル"):
-                    st.session_state.edit_target = None
-                    st.rerun()
-        else:
-            save_clicked = st.button(btn_label, key="btn_save_master")
+            if st.button("❌ 編集をキャンセル"):
+                st.session_state.edit_target = None
+                st.rerun()
 
         if save_clicked:
             if not new_liq_name:
@@ -422,7 +367,7 @@ if check_password():
         except Exception as e: st.error(f"⚠️ 履歴カレンダーの読み込みに失敗しました: {e}")
 
     elif page == "📊 レビュー" or page == "✍️ 体感レビュー入力":
-        # 💡 レビュー関連ページは同じスクリプト(review.py想定)で、ページ変数(page)を渡して役割を切り分け
+        # 💡 レビュー専用の外部ファイル（review.py）を読み込んで完全に制御させます
         try:
             with open("review.py", encoding="utf-8") as f: exec(f.read(), globals())
         except Exception as e: st.error(f"読み込みエラー: {e}")
