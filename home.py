@@ -35,7 +35,7 @@ def check_password():
 
 if check_password():
 
-    # 💡 セッション変数の初期化
+    # セッション変数の初期化
     if "m_g1" not in st.session_state: st.session_state.m_g1 = 1
     if "m_g2" not in st.session_state: st.session_state.m_g2 = 1
     if "m_g3" not in st.session_state: st.session_state.m_g3 = 1
@@ -119,29 +119,33 @@ if check_password():
             return g1, g2, g3
         except Exception: return ["CRDP", "THA"], ["CBD", "CBG"], ["ミルセン", "リモネン"]
 
-    COMP_MASTER_COLS = ["成分名", "分類"]
-
-    if 'g1_presets' not in st.session_state or 'g2_presets' not in st.session_state or 'g3_presets' not in st.session_state:
+    # 🛠️ 毎回最新の登録成分を取得して、プリセットリストを作成・結合する関数
+    def get_all_components_lists():
         g1_init, g2_init, g3_init = load_excel_presets()
-        st.session_state['g1_presets'] = g1_init
-        st.session_state['g2_presets'] = g2_init
-        st.session_state['g3_presets'] = g3_init
+        g1_list = list(g1_init)
+        g2_list = list(g2_init)
+        g3_list = list(g3_init)
         
-        df_saved_comps = load_data_from_db("Components_Master", COMP_MASTER_COLS)
+        # ギャラリーマスター（成分マスタをここに統一）から動的に追加読み込み
+        GALLERY_COLS = ["成分名", "分類", "効果", "時間", "香り・ロケーション"]
+        df_saved_comps = load_data_from_db("Gallery_Master", GALLERY_COLS)
         if not df_saved_comps.empty:
+            df_saved_comps = df_saved_comps.fillna("").astype(str)
             for _, r in df_saved_comps.iterrows():
-                c_name = str(r["成分名"])
-                c_group = str(r["分類"])
-                if c_group == "主要成分" and c_name not in st.session_state['g1_presets']:
-                    st.session_state['g1_presets'].append(c_name)
-                elif "ベース" in c_group and c_name not in st.session_state['g2_presets']:
-                    st.session_state['g2_presets'].append(c_name)
-                elif "テルペン" in c_group and c_name not in st.session_state['g3_presets']:
-                    st.session_state['g3_presets'].append(c_name)
+                c_name = r["成分名"].strip()
+                c_group = r["分類"].strip()
+                if not c_name: continue
+                
+                if "主要成分" in c_group and c_name not in g1_list:
+                    g1_list.append(c_name)
+                elif "天然成分" in c_group and c_name not in g2_list:
+                    g2_list.append(c_name)
+                elif "テルペン" in c_group and c_name not in g3_list:
+                    g3_list.append(c_name)
+        return g1_list, g2_list, g3_list
 
-    g1_presets = st.session_state['g1_presets']
-    g2_presets = st.session_state['g2_presets']
-    g3_presets = st.session_state['g3_presets']
+    # 最新リストの更新
+    g1_presets, g2_presets, g3_presets = get_all_components_lists()
 
     # --- 🎨 背景画像処理 ---
     bg_style_raw = "linear-gradient(135deg, #130021 0%, #3a0066 100%)"
@@ -174,7 +178,7 @@ if check_password():
 
     st.markdown(css_code, unsafe_allow_html=True)
 
-    # ==================== 🛠️ サイドメニューのジャンル分け ====================
+    # ==================== サイドメニュー ====================
     st.sidebar.markdown("### 📂 ジャンル選択")
     genre = st.sidebar.selectbox(
         "表示するメニューの系統",
@@ -184,34 +188,21 @@ if check_password():
     if genre == "📱 メイン機能・閲覧ページ":
         page = st.sidebar.radio(
             "メニュー項目",
-            [
-                "📝 ワンタップ吸引記録",
-                "📅 履歴カレンダー",
-                "📊 レビュー",
-                "📖 成分ギャラリー",
-                "📸 リキッド紹介"
-            ]
+            ["📝 ワンタップ吸引記録", "📅 履歴カレンダー", "📊 レビュー", "📖 成分ギャラリー", "📸 リキッド紹介"]
         )
     else:
         page = st.sidebar.radio(
             "メニュー項目",
-            [
-                "🧪 リキッドマスター登録",
-                "✍️ 体感レビュー入力",
-                "🌐 新成分マスター登録",
-                "✨ 成分ギャラリー登録"
-            ]
+            ["🧪 リキッドマスター登録", "✍️ 体感レビュー入力", "🌐 新成分マスター登録"]
         )
 
-    # 💡 タイトルバナー設定
     banner_titles = {
         "📝 ワンタップ吸引記録": "ワンタップ吸引記録",
         "🧪 リキッドマスター登録": "リキッドマスター設定",
-        "🌐 新成分マスター登録": "新成分の追加登録",
+        "🌐 新成分マスター登録": "新成分の追加登録・編集",
         "📅 履歴カレンダー": "使用履歴カレンダー",
         "📊 レビュー": "レビュー一覧",
         "📖 成分ギャラリー": "成分一覧",
-        "✨ 成分ギャラリー登録": "ギャラリー用データの新規登録",
         "📸 リキッド紹介": "各リキッドのフォト＆レビュー",
         "✍️ 体感レビュー入力": "体感レビュー入力フォーム"
     }
@@ -275,7 +266,6 @@ if check_password():
         st.write("配合割合を入力してください。")
         g1_total, g2_total, g3_total = 0.0, 0.0, 0.0
         
-        # 💡 【まとめて保存方式】フォームの中に比率入力を閉じ込めます
         with st.form(key="liquid_register_form"):
             g1_data = []
             for i in range(st.session_state.m_g1):
@@ -304,7 +294,6 @@ if check_password():
             btn_label = "💾 編集内容を上書き保存" if st.session_state.edit_target else "💾 マスターにまとめて登録"
             save_clicked = st.form_submit_button(btn_label)
 
-        # 枠を増やすボタン（フォームの外に配置して入力値を維持）
         c_a1, c_a2, c_a3 = st.columns(3)
         with c_a1:
             if st.button("➕ 主要成分枠を追加"):
@@ -326,22 +315,15 @@ if check_password():
         else:
             st.success(f"🏆 現在の合計: {total_all:.1f} %")
 
-        if st.session_state.edit_target:
-            if st.button("❌ 編集をキャンセル"):
-                st.session_state.edit_target = None
-                st.rerun()
-
         if save_clicked:
-            if not new_liq_name:
-                st.error("リキッド名を入力してください")
+            if not new_liq_name: st.error("リキッド名を入力してください")
             else:
                 parts = []
                 for n, p in g1_data + g2_data + g3_data:
                     if p > 0.0: 
                         p_str = f"{int(p)}" if p.is_integer() else f"{p:.1f}"
                         parts.append(f"{n}:{p_str}%")
-                if not parts:
-                    st.error("比率が0.1%以上の成分を1つ以上入力してください")
+                if not parts: st.error("比率を1つ以上入力してください")
                 else:
                     detail_str = ", ".join(parts)
                     if st.session_state.edit_target:
@@ -349,11 +331,9 @@ if check_password():
                         new_row = pd.DataFrame([{"リキッド名": new_liq_name, "配合詳細": detail_str}])
                         df_updated = pd.concat([df_master, new_row], ignore_index=True)
                         save_all_data_to_db("Liquid_Master", df_updated, LIQUID_MASTER_COLS)
-                        st.success(f"🎉 「{new_liq_name}」に編集内容を上書き保存しました！")
                         st.session_state.edit_target = None
                     else:
                         save_data_to_db("Liquid_Master", {"リキッド名": new_liq_name, "配合詳細": detail_str}, LIQUID_MASTER_COLS)
-                        st.success(f"🎉 「{new_liq_name}」を新規登録しました！")
                     st.rerun()
 
     elif page == "🌐 新成分マスター登録":
@@ -367,7 +347,6 @@ if check_password():
         except Exception as e: st.error(f"⚠️ 履歴カレンダーの読み込みに失敗しました: {e}")
 
     elif page == "📊 レビュー" or page == "✍️ 体感レビュー入力":
-        # 💡 レビュー専用の外部ファイル（review.py）を読み込んで完全に制御させます
         try:
             with open("review.py", encoding="utf-8") as f: exec(f.read(), globals())
         except Exception as e: st.error(f"読み込みエラー: {e}")
@@ -375,11 +354,6 @@ if check_password():
     elif page == "📖 成分ギャラリー":
         try:
             with open("gallery.py", encoding="utf-8") as f: exec(f.read(), globals())
-        except Exception as e: st.error(f"読み込みエラー: {e}")
-
-    elif page == "✨ 成分ギャラリー登録":
-        try:
-            with open("gallery_reg.py", encoding="utf-8") as f: exec(f.read(), globals())
         except Exception as e: st.error(f"読み込みエラー: {e}")
 
     elif page == "📸 リキッド紹介":
